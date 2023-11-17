@@ -24,6 +24,7 @@ char *AS_port = "58001";
 
 int parse_args(int argc, char **argv) {
     if (argc == 3) {
+        puts("TOU AQUI");
         // -n as the only flag
         if (strcmp(argv[1], "-n") == 0) {
             AS_addr = argv[2];
@@ -57,7 +58,6 @@ int main(int argc, char **argv) {
     parse_args(argc, argv);
     printf("%s %s\n", AS_addr, AS_port);
     fd = socket(AF_INET, SOCK_DGRAM, 0);
-    printf("%d\n", fd);
     if (fd == -1) /*error*/ exit(1);
 
     memset(&hints, 0, sizeof(hints));
@@ -66,7 +66,6 @@ int main(int argc, char **argv) {
     hints.ai_socktype=SOCK_DGRAM;
 
     errcode = getaddrinfo(AS_addr, AS_port, &hints, &res);
-    printf("%d\n", errcode);
     if (errcode != 0) /*error*/ exit(1);
 
     n = sendto(fd, "Hello!!!\n", 9, 0, res->ai_addr, res->ai_addrlen);
