@@ -7,7 +7,6 @@
 #include <netdb.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include <dirent.h>
 
 int fd,errcode;
@@ -55,8 +54,8 @@ int parse_args(int argc, char **argv) {
     return EXIT_SUCCESS;
 }
 
-int handle_login(char *UID, char *password) {
-    scanf("%s %s", UID, password);
+int handle_login(char *input, char *UID, char *password) {
+    sscanf(input, "%*s %s %s", UID, password);
 
     return EXIT_SUCCESS;
 }
@@ -79,14 +78,14 @@ int handle_exit() {
     return EXIT_SUCCESS;
 }
 
-int handle_open(char *name, char *asset_fname, int *start_value, int *time_active) {
-    scanf("%s %s %d %d", name, asset_fname, start_value, time_active);
+int handle_open(char *input, char *name, char *asset_fname, int *start_value, int *time_active) {
+    sscanf(input, "%*s %s %s %d %d", name, asset_fname, start_value, time_active);
 
     return EXIT_SUCCESS;
 }
 
-int handle_close(int *AID) {
-    scanf("%d", AID);
+int handle_close(char *input, int *AID) {
+    sscanf(input, "%*s %d", AID);
 
     return EXIT_SUCCESS;
 }
@@ -109,26 +108,27 @@ int handle_list() {
     return EXIT_SUCCESS;
 }
 
-int handle_show_asset(int *AID) {
-    scanf("%d", AID);
+int handle_show_asset(char *input, int *AID) {
+    sscanf(input, "%*s %d", AID);
 
     return EXIT_SUCCESS;
 }
 
-int handle_bid(int *AID) {
-    scanf("%d", AID);
+int handle_bid(char *input, int *AID) {
+    sscanf(input, "%*s %d", AID);
 
     return EXIT_SUCCESS;
 }
 
-int handle_show_record(int *AID) {
-    scanf("%d", AID);
+int handle_show_record(char *input, int *AID) {
+    sscanf(input, "%*s %d", AID);
 
     return EXIT_SUCCESS;
 }
 
 int receive_user_input() {
-    char input[300];
+    char input[400];
+    char command[20];
     char UID[7];
     char password[9];
     char name[11];
@@ -137,38 +137,35 @@ int receive_user_input() {
     int start_value, time_active;
     int AID;
 
-    scanf("%s", input); 
+    fgets(input, sizeof(input), stdin);
+    sscanf(input, "%s", command);
 
-    if (!strcmp(input, "login")) {
-        handle_login(UID, password);
-    } else if (!strcmp(input, "logout")) {
+    if (!strcmp(command, "login")) {
+        handle_login(input, UID, password);
+    } else if (!strcmp(command, "logout")) {
         handle_logout();
-    } else if (!strcmp(input, "unregister")) {
+    } else if (!strcmp(command, "unregister")) {
         handle_unregister();
-    } else if (!strcmp(input, "exit")) {
+    } else if (!strcmp(command, "exit")) {
         handle_exit();
-    } else if (!strcmp(input, "open")) {
-        handle_open(name, asset_fname, &start_value, &time_active);
-        printf("%s %s %d %d\n", name, asset_fname, start_value, time_active);
-    } else if (!strcmp(input, "close")) {
-        handle_close(&AID);
-        printf("%d\n", AID);
-    } else if (!strcmp(input, "myauctions") || !strcmp(input, "ma")) {
+    } else if (!strcmp(command, "open")) {
+        handle_open(input, name, asset_fname, &start_value, &time_active);
+    } else if (!strcmp(command, "close")) {
+        handle_close(input, &AID);
+    } else if (!strcmp(command, "myauctions") || !strcmp(command, "ma")) {
         handle_myauctions();
-    } else if (!strcmp(input, "mybids") || !strcmp(input, "mb")) {
+    } else if (!strcmp(command, "mybids") || !strcmp(command, "mb")) {
         handle_mybids();
-    } else if (!strcmp(input, "list") || !strcmp(input, "l")) {
+    } else if (!strcmp(command, "list") || !strcmp(command, "l")) {
         handle_list();
-    } else if (!strcmp(input, "show_asset") || !strcmp(input, "sa")) {
-        handle_show_asset(&AID);
-        printf("%d\n", AID);
-    } else if (!strcmp(input, "bid") || strcmp(input, "b")) {
-        handle_bid(&AID);
-        printf("%d\n", AID);
-    } else if (!strcmp(input, "show_record") || strcmp(input, "sr")) {
-        handle_show_record(&AID);
-        printf("%d\n", AID);
+    } else if (!strcmp(command, "show_asset") || !strcmp(command, "sa")) {
+        handle_show_asset(input, &AID);
+    } else if (!strcmp(command, "bid") || !strcmp(command, "b")) {
+        handle_bid(input, &AID);
+    } else if (!strcmp(command, "show_record") || !strcmp(command, "sr")) {
+        handle_show_record(input, &AID);
     } else {
+        fprintf(stderr, "Error: [%s] command unknown\n", command);
         return EXIT_FAILURE;
     }
 
