@@ -14,11 +14,12 @@ ssize_t n;
 socklen_t addrlen;
 struct addrinfo hints, *res;
 struct sockaddr_in addr;
-char buffer[128];
+char buffer[256];
 char *AS_addr = "tejo.tecnico.ulisboa.pt";
 // TODO: change the port so it it is 58000+[Group_number]
 // INFO: The port 58001 only echoes the message received, the port 58011 is the actual AS_server
 char *AS_port = "58011";
+char command_to_send[50];
 char input[400];
 char command[20];
 char UID[7];
@@ -27,7 +28,7 @@ char name[11];
 char asset_fname[30];
 // Estes doubles precisam de ser doubles ou podem ser ints?
 int start_value, time_active;
-int AID;
+char AID[3];
 
 int parse_args(int argc, char **argv) {
     if (argc == 3) {
@@ -56,82 +57,122 @@ int parse_args(int argc, char **argv) {
                 AS_addr = argv[4];
             }
         }
-    } else {
-        return EXIT_FAILURE;
+    } else if (argc != 1) {
+        return -1;
     }
 
-    return EXIT_SUCCESS;
+    return 0;
 }
 
-int handle_login(char *input, char *UID, char *password) {
+int handle_login() {
     sscanf(input, "%*s %s %s", UID, password);
+    sprintf(command_to_send, "LIN %s %s\n", UID, password);
 
-    return EXIT_SUCCESS;
+    n = sendto(fd, command_to_send, strlen(command_to_send), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1)
+        return -1;
+
+    return 0;
 }
 
 int handle_logout() {
-    return EXIT_SUCCESS;
+    sprintf(command_to_send, "LOU %s %s\n", UID, password);
+
+    n = sendto(fd, command_to_send, strlen(command_to_send), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1)
+        return -1;
+
+    return 1;
 }
 
 int handle_unregister() {
-    return EXIT_SUCCESS;
+    sprintf(command_to_send, "UNR %s %s\n", UID, password);
+
+    n = sendto(fd, command_to_send, strlen(command_to_send), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1)
+        return -1;
+    return 0;
 }
 
 int handle_exit() {
-    return EXIT_SUCCESS;
+    return 0;
 }
 
-int handle_open(char *input, char *name, char *asset_fname, int *start_value, int *time_active) {
-    sscanf(input, "%*s %s %s %d %d", name, asset_fname, start_value, time_active);
+int handle_open() {
+    sscanf(input, "%*s %s %s %d %d", name, asset_fname, &start_value, &time_active);
 
-    return EXIT_SUCCESS;
+    return 0;
 }
 
-int handle_close(char *input, int *AID) {
-    sscanf(input, "%*s %d", AID);
+int handle_close() {
+    sscanf(input, "%*s %s", AID);
 
-    return EXIT_SUCCESS;
+    return 0;
 }
 
 int handle_myauctions() {
-    return EXIT_SUCCESS;
+    sprintf(command_to_send, "LMA %s\n", UID);
+
+    n = sendto(fd, command_to_send, strlen(command_to_send), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1)
+        return -1;
+
+    return 0;
 }
 
 int handle_mybids() {
-    return EXIT_SUCCESS;
+    sprintf(command_to_send, "LMB %s\n", UID);
+
+    n = sendto(fd, command_to_send, strlen(command_to_send), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1)
+        return -1;
+
+    return 0;
 }
 
 int handle_list() {
-    return EXIT_SUCCESS;
+    sprintf(command_to_send, "LST\n");
+
+    n = sendto(fd, command_to_send, strlen(command_to_send), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1)
+        return -1;
+
+    return 0;
 }
 
-int handle_show_asset(char *input, int *AID) {
-    sscanf(input, "%*s %d", AID);
+int handle_show_asset() {
+    sscanf(input, "%*s %s", AID);
 
-    return EXIT_SUCCESS;
+    return 0;
 }
 
-int handle_bid(char *input, int *AID) {
-    sscanf(input, "%*s %d", AID);
+int handle_bid() {
+    sscanf(input, "%*s %s", AID);
 
-    return EXIT_SUCCESS;
+    return 0;
 }
 
-int handle_show_record(char *input, int *AID) {
-    sscanf(input, "%*s %d", AID);
+int handle_show_record() {
+    sscanf(input, "%*s %s", AID);
+    printf("%s\n", AID);
+    sprintf(command_to_send, "SRC %s\n", AID);
 
-    return EXIT_SUCCESS;
+    n = sendto(fd, command_to_send, strlen(command_to_send), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1)
+        return -1;
+
+    return 0;
 }
 
 int receive_user_input() {
     if (fgets(input, sizeof(input), stdin) == NULL) {
-        fprintf(stderr, "Error: error reading user input");
+        return -1;
     }
 
     sscanf(input, "%s", command);
 
     if (!strcmp(command, "login")) {
-        handle_login(input, UID, password);
+        handle_login();
     } else if (!strcmp(command, "logout")) {
         handle_logout();
     } else if (!strcmp(command, "unregister")) {
@@ -139,9 +180,9 @@ int receive_user_input() {
     } else if (!strcmp(command, "exit")) {
         handle_exit();
     } else if (!strcmp(command, "open")) {
-        handle_open(input, name, asset_fname, &start_value, &time_active);
+        handle_open();
     } else if (!strcmp(command, "close")) {
-        handle_close(input, &AID);
+        handle_close();
     } else if (!strcmp(command, "myauctions") || !strcmp(command, "ma")) {
         handle_myauctions();
     } else if (!strcmp(command, "mybids") || !strcmp(command, "mb")) {
@@ -149,21 +190,21 @@ int receive_user_input() {
     } else if (!strcmp(command, "list") || !strcmp(command, "l")) {
         handle_list();
     } else if (!strcmp(command, "show_asset") || !strcmp(command, "sa")) {
-        handle_show_asset(input, &AID);
+        handle_show_asset();
     } else if (!strcmp(command, "bid") || !strcmp(command, "b")) {
-        handle_bid(input, &AID);
+        handle_bid();
     } else if (!strcmp(command, "show_record") || !strcmp(command, "sr")) {
-        handle_show_record(input, &AID);
+        handle_show_record();
     } else {
         fprintf(stderr, "Error: [%s] command unknown\n", command);
-        return EXIT_FAILURE;
+        return -1;
     }
 
-    return EXIT_SUCCESS;
+    return 0;
 }
 
 int main(int argc, char **argv) {
-    char *new_buffer = "LIN 103938 12345678\n";
+    int r;
     if (parse_args(argc, argv) == -1)
         exit(1);
     
@@ -172,6 +213,14 @@ int main(int argc, char **argv) {
         exit(1);
     
     memset(&hints, 0, sizeof(hints));
+    memset(&buffer, 0, sizeof(buffer));
+    memset(&command_to_send, 0, sizeof(command_to_send));
+    memset(&input, 0, sizeof(input));
+    memset(&command, 0, sizeof(command));
+    memset(&UID, 0, sizeof(UID));
+    memset(&password, 0, sizeof(password));
+    memset(&name, 0, sizeof(name));
+    memset(&asset_fname, 0, sizeof(asset_fname));
     
     hints.ai_family=AF_INET;
     hints.ai_socktype=SOCK_DGRAM;
@@ -184,22 +233,22 @@ int main(int argc, char **argv) {
 
     while (1) {
         printf("> ");
-        receive_user_input();
+        r = receive_user_input();
+        if (r == -1) {
+            fprintf(stderr, "Error: error reading user input.\n");
+            continue;
+        }
         if (!strcmp(command, "exit")) {
             freeaddrinfo(res);
             close(fd);
-            return EXIT_SUCCESS;
+            return 0;
         }
-        n = sendto(fd, new_buffer, strlen(new_buffer), 0, res->ai_addr, res->ai_addrlen);
-        if (n == -1)
-            exit(1);
 
         addrlen = sizeof(addr);
 
         n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*)&addr, &addrlen);
         if (n == -1)
             exit(1);
-        printf("it's here\n");
 
         write(1, buffer, n);
     }
