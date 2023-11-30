@@ -169,6 +169,7 @@ int receive_user_input() {
         return -1;
     }
 
+
     sscanf(input, "%s", command);
 
     if (!strcmp(command, "login")) {
