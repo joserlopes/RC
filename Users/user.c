@@ -14,7 +14,7 @@ ssize_t n;
 socklen_t addrlen;
 struct addrinfo hints, *res;
 struct sockaddr_in addr;
-char buffer[256];
+char server_reply[256];
 char *AS_addr = "tejo.tecnico.ulisboa.pt";
 // TODO: change the port so it it is 58000+[Group_number]
 // INFO: The port 58001 only echoes the message received, the port 58011 is the actual AS_server
@@ -65,6 +65,8 @@ int parse_args(int argc, char **argv) {
 }
 
 int handle_login() {
+    char result[10];
+
     sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "LIN %s %s\n", UID, password);
 
@@ -72,25 +74,84 @@ int handle_login() {
     if (n == -1)
         return -1;
 
+    addrlen = sizeof(addr);
+
+    n = recvfrom(fd, server_reply, 128, 0, (struct sockaddr*)&addr, &addrlen);
+    if (n == -1)
+        return -1;
+
+    sscanf(server_reply, "%*s %s", result);
+
+    if (!strcmp(result, "OK")) {
+        fprintf(stdout, "Successful login\n");
+    } else if (!strcmp(result, "NOK")) {
+        fprintf(stdout, "Incorrect login attempt\n");
+    } else if (!strcmp(result, "REG")) {
+        fprintf(stdout, "New user registered\n");
+    } else {
+        fprintf(stdout, "Unknown server reply");
+    }
+
     return 0;
 }
 
 int handle_logout() {
+    char result[10];
+
     sprintf(command_to_send, "LOU %s %s\n", UID, password);
 
     n = sendto(fd, command_to_send, strlen(command_to_send), 0, res->ai_addr, res->ai_addrlen);
     if (n == -1)
         return -1;
 
+    addrlen = sizeof(addr);
+
+    n = recvfrom(fd, server_reply, 128, 0, (struct sockaddr*)&addr, &addrlen);
+    if (n == -1)
+        return -1;
+
+    sscanf(server_reply, "%*s %s", result);
+
+    if (!strcmp(result, "OK")) {
+        fprintf(stdout, "Sucessful logout\n");
+    } else if (!strcmp(result, "UNR")) {
+        fprintf(stdout, "Unknown user\n");
+    } else if (!strcmp(result, "NOK")) {
+        fprintf(stdout, "User not logged in\n");
+    } else {
+        fprintf(stdout, "unknown server reply");
+    }
+
     return 1;
 }
 
 int handle_unregister() {
+    char result[10];
+
     sprintf(command_to_send, "UNR %s %s\n", UID, password);
 
     n = sendto(fd, command_to_send, strlen(command_to_send), 0, res->ai_addr, res->ai_addrlen);
     if (n == -1)
         return -1;
+
+    addrlen = sizeof(addr);
+
+    n = recvfrom(fd, server_reply, 128, 0, (struct sockaddr*)&addr, &addrlen);
+    if (n == -1)
+        return -1;
+
+    sscanf(server_reply, "%*s %s", result);
+
+    if (!strcmp(result, "OK")) {
+        fprintf(stdout, "Sucessful unregister\n");
+    } else if (!strcmp(result, "UNR")) {
+        fprintf(stdout, "Unknown user\n");
+    } else if (!strcmp(result, "NOK")) {
+        fprintf(stdout, "Incorrect unregister attempt\n");
+    } else {
+        fprintf(stdout, "unknown server reply");
+    }
+
     return 0;
 }
 
@@ -165,6 +226,7 @@ int handle_show_record() {
 }
 
 int receive_user_input() {
+    int handler;
     if (fgets(input, sizeof(input), stdin) == NULL) {
         return -1;
     }
@@ -173,7 +235,10 @@ int receive_user_input() {
     sscanf(input, "%s", command);
 
     if (!strcmp(command, "login")) {
-        handle_login();
+        handler = handle_login();
+        if (handler == -1) {
+            fprintf(stderr, "Error logging in the user\n");
+        }
     } else if (!strcmp(command, "logout")) {
         handle_logout();
     } else if (!strcmp(command, "unregister")) {
@@ -214,14 +279,14 @@ int main(int argc, char **argv) {
         exit(1);
     
     memset(&hints, 0, sizeof(hints));
-    memset(&buffer, 0, sizeof(buffer));
-    memset(&command_to_send, 0, sizeof(command_to_send));
-    memset(&input, 0, sizeof(input));
-    memset(&command, 0, sizeof(command));
-    memset(&UID, 0, sizeof(UID));
-    memset(&password, 0, sizeof(password));
-    memset(&name, 0, sizeof(name));
-    memset(&asset_fname, 0, sizeof(asset_fname));
+    memset(server_reply, 0, sizeof(server_reply));
+    memset(command_to_send, 0, sizeof(command_to_send));
+    memset(input, 0, sizeof(input));
+    memset(command, 0, sizeof(command));
+    memset(UID, 0, sizeof(UID));
+    memset(password, 0, sizeof(password));
+    memset(name, 0, sizeof(name));
+    memset(asset_fname, 0, sizeof(asset_fname));
     
     hints.ai_family=AF_INET;
     hints.ai_socktype=SOCK_DGRAM;
@@ -245,12 +310,6 @@ int main(int argc, char **argv) {
             return 0;
         }
 
-        addrlen = sizeof(addr);
-
-        n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*)&addr, &addrlen);
-        if (n == -1)
-            exit(1);
-
-        write(1, buffer, n);
+        write(1, server_reply, n);
     }
 }
