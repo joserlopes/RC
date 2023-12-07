@@ -496,10 +496,12 @@ int main(int argc, char **argv) {
     while (1) {
         printf("> ");
         r = receive_user_input();
+
         if (r == -1) {
             fprintf(stderr, "Error getting user input\n");
             continue;
         }
+
         if (!strcmp(command, "exit")) {
             freeaddrinfo(UDP_res);
             close(UDP_fd);
