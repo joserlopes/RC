@@ -14,7 +14,7 @@ socklen_t UDP_addrlen, TCP_addrlen;
 struct addrinfo UPD_hints, *UDP_res, TCP_hints, *TCP_res;
 struct sockaddr_in UPD_addr, TCP_addr;
 char server_reply[256];
-char *AS_addr = "tejo.tecnico.ulisboa.pt";
+char *AS_addr = "localhost";
 // TODO: change the default port so it it is 58000+[Group_number], in our case 88
 // INFO: The port 58001 only echoes the message received, the port 58011 is the actual AS_server
 char *AS_port = "58011";
@@ -104,7 +104,7 @@ int handle_login() {
     } else if (!strcmp(result, "REG")) {
         fprintf(stdout, "New user registered\n");
     } else {
-        fprintf(stdout, "Unknown server reply");
+        fprintf(stdout, "Unknown server reply\n");
     }
 
     return 0;
@@ -116,6 +116,7 @@ int handle_logout() {
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
 
+    sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "LOU %s %s\n", UID, password);
 
     UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0, UDP_res->ai_addr, UDP_res->ai_addrlen);
@@ -149,6 +150,7 @@ int handle_unregister() {
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
 
+    sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "UNR %s %s\n", UID, password);
 
     UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0, UDP_res->ai_addr, UDP_res->ai_addrlen);
@@ -170,7 +172,7 @@ int handle_unregister() {
     } else if (!strcmp(result, "NOK")) {
         fprintf(stdout, "Incorrect unregister attempt\n");
     } else {
-        fprintf(stdout, "unknown server reply");
+        fprintf(stdout, "unknown server reply\n");
     }
 
     return 0;
@@ -474,7 +476,6 @@ int main(int argc, char **argv) {
         exit(1);
     
     memset(&UPD_hints, 0, sizeof(UPD_hints));
-
     memset(server_reply, 0, sizeof(server_reply));
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(input, 0, sizeof(input));
