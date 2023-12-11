@@ -1,10 +1,4 @@
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+#include "user.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -13,10 +7,11 @@ ssize_t UPD_n, TCP_n;
 socklen_t UDP_addrlen, TCP_addrlen;
 struct addrinfo UPD_hints, *UDP_res, TCP_hints, *TCP_res;
 struct sockaddr_in UPD_addr, TCP_addr;
-char server_reply[256];
+char server_reply[LIST_SIZE];
 char *AS_addr = "localhost";
-// TODO: change the default port so it it is 58000+[Group_number], in our case 88
-// INFO: The port 58001 only echoes the message received, the port 58011 is the actual AS_server
+// TODO: change the default port so it it is 58000+[Group_number], in our case
+// INFO: The port 58001 only echoes the message received, the port 58011 is
+// the actual AS_server
 char *AS_port = "58011";
 char command_to_send[500];
 char input[400];
@@ -25,7 +20,6 @@ char UID[7];
 char password[9];
 char name[11];
 char asset_fname[30];
-// Estes doubles precisam de ser doubles ou podem ser ints?
 int start_value, time_active;
 char AID[3];
 
@@ -37,7 +31,7 @@ int parse_args(int argc, char **argv) {
             if (strcmp(argv[1], "-n") == 0) {
                 AS_addr = argv[2];
             }
-            // -p as the only flag 
+            // -p as the only flag
             if (strcmp(argv[1], "-p") == 0) {
                 AS_port = argv[2];
             }
@@ -46,7 +40,7 @@ int parse_args(int argc, char **argv) {
             if (strcmp(argv[1], "-n") == 0) {
                 AS_addr = argv[2];
             }
-            // -p as the only flag 
+            // -p as the only flag
             if (strcmp(argv[1], "-p") == 0) {
                 AS_port = argv[2];
             }
@@ -77,7 +71,7 @@ int parse_args(int argc, char **argv) {
 }
 
 int handle_login() {
-    char result[10];
+    char status[10];
 
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
@@ -85,25 +79,27 @@ int handle_login() {
     sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "LIN %s %s\n", UID, password);
 
-    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0, UDP_res->ai_addr, UDP_res->ai_addrlen);
+    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0,
+    UDP_res->ai_addr, UDP_res->ai_addrlen);
     if (UPD_n == -1)
         return -1;
 
     UDP_addrlen = sizeof(UPD_addr);
 
-    UPD_n = recvfrom(UDP_fd, server_reply, 256, 0, (struct sockaddr*)&UPD_addr, &UDP_addrlen);
+    UPD_n = recvfrom(UDP_fd, server_reply, BUFFER_SIZE, 0,
+            (struct sockaddr *)&UPD_addr, &UDP_addrlen);
     if (UPD_n == -1)
         return -1;
 
-    sscanf(server_reply, "%*s %s", result);
+    sscanf(server_reply, "%*s %s", status);
 
-    if (!strcmp(result, "OK")) {
+    if (!strcmp(status, "OK")) {
         fprintf(stdout, "Successful login\n");
-    } else if (!strcmp(result, "NOK")) {
+    } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "Incorrect login attempt\n");
-    } else if (!strcmp(result, "REG")) {
+    } else if (!strcmp(status, "REG")) {
         fprintf(stdout, "New user registered\n");
-    } else if (!strcmp(result, "ERR")) {
+    } else if (!strcmp(status, "ERR")) {
         fprintf(stdout, "Syntax error or invalid parameter values\n");
     } else {
         return -1;
@@ -113,7 +109,7 @@ int handle_login() {
 }
 
 int handle_logout() {
-    char result[10];
+    char status[10];
 
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
@@ -121,35 +117,37 @@ int handle_logout() {
     sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "LOU %s %s\n", UID, password);
 
-    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0, UDP_res->ai_addr, UDP_res->ai_addrlen);
+    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0,
+            UDP_res->ai_addr, UDP_res->ai_addrlen);
     if (UPD_n == -1)
         return -1;
 
     UDP_addrlen = sizeof(UPD_addr);
 
-    UPD_n = recvfrom(UDP_fd, server_reply, 256, 0, (struct sockaddr*)&UPD_addr, &UDP_addrlen);
+    UPD_n = recvfrom(UDP_fd, server_reply, BUFFER_SIZE, 0,
+            (struct sockaddr *)&UPD_addr, &UDP_addrlen);
     if (UPD_n == -1)
         return -1;
 
-    sscanf(server_reply, "%*s %s", result);
+    sscanf(server_reply, "%*s %s", status);
 
-    if (!strcmp(result, "OK")) {
+    if (!strcmp(status, "OK")) {
         fprintf(stdout, "Sucessful logout\n");
-    } else if (!strcmp(result, "UNR")) {
+    } else if (!strcmp(status, "UNR")) {
         fprintf(stdout, "Unknown user\n");
-    } else if (!strcmp(result, "NOK")) {
+    } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "User not logged in\n");
-    } else if (!strcmp(result, "ERR")) {
+    } else if (!strcmp(status, "ERR")) {
         fprintf(stdout, "Syntax error or invalid parameter values\n");
     } else {
         return -1;
     }
 
-    return 1;
+    return 0;
 }
 
 int handle_unregister() {
-    char result[10];
+    char status[10];
 
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
@@ -157,25 +155,28 @@ int handle_unregister() {
     sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "UNR %s %s\n", UID, password);
 
-    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0, UDP_res->ai_addr, UDP_res->ai_addrlen);
+    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0,
+            UDP_res->ai_addr, UDP_res->ai_addrlen);
     if (UPD_n == -1)
         return -1;
 
     UDP_addrlen = sizeof(UPD_addr);
 
-    UPD_n = recvfrom(UDP_fd, server_reply, 256, 0, (struct sockaddr*)&UPD_addr, &UDP_addrlen);
+    UPD_n = recvfrom(UDP_fd, server_reply, BUFFER_SIZE, 0,
+            (struct sockaddr *)&UPD_addr, &UDP_addrlen);
     if (UPD_n == -1)
         return -1;
 
-    sscanf(server_reply, "%*s %s", result);
+    printf("%s\n", server_reply);
+    sscanf(server_reply, "%*s %s", status);
 
-    if (!strcmp(result, "OK")) {
+    if (!strcmp(status, "OK")) {
         fprintf(stdout, "Sucessful unregister\n");
-    } else if (!strcmp(result, "UNR")) {
+    } else if (!strcmp(status, "UNR")) {
         fprintf(stdout, "Unknown user\n");
-    } else if (!strcmp(result, "NOK")) {
+    } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "Incorrect unregister attempt\n");
-    } else if (!strcmp(result, "ERR")) {
+    } else if (!strcmp(status, "ERR")) {
         fprintf(stdout, "Syntax error or invalid parameter values\n");
     } else {
         return -1;
@@ -185,7 +186,41 @@ int handle_unregister() {
 }
 
 int handle_exit() {
-    //TODO: Ver a cena do User ter que informar que o utilizador ainda está logado caso ele tente fazer exit
+    // TODO: Ver a cena do User ter que informar que o utilizador ainda está
+    // logado caso ele tente fazer exit
+    return 0;
+}
+
+int write_TCP_loop(char *fdata_buffer, ssize_t size) {
+    ssize_t written;
+    ssize_t total_written = 0;
+
+    while (total_written < size) {
+        // fdata_buffer + total_written calculates the correct
+        // offset in case multiple loops are necessary
+        ssize_t written = write(TCP_fd, fdata_buffer + total_written, size);
+
+        if (written == -1)
+            return -1;
+
+        total_written += written;
+    }
+
+    return 0;
+}
+
+int read_TCP_loop(char *reply_buffer) {
+    ssize_t received;
+    ssize_t total_received = 0;
+
+    while ((received = read(TCP_fd, reply_buffer + total_received,
+                    sizeof(reply_buffer))) > 0) {
+        total_received += received;
+    }
+
+    if (received == -1)
+        return -1;
+
     return 0;
 }
 
@@ -211,25 +246,26 @@ int initialize_TCP_connection() {
 }
 
 int handle_open() {
-    char asset_name[50];
-    char result[10];
+    char asset_path[50];
+    char status[10];
     char new_AID[10];
     int connection_status;
 
-    sscanf(input, "%*s %s %s %d %d", name, asset_fname, &start_value, &time_active);
+    sscanf(input, "%*s %s %s %d %d", name, asset_fname, &start_value,
+            &time_active);
 
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
 
     FILE *file;
 
-    sprintf(asset_name, "../assets/%s", asset_fname);
+    sprintf(asset_path, "../assets/%s", asset_fname);
 
     connection_status = initialize_TCP_connection();
     if (connection_status == -1)
         return -1;
 
-    file = fopen(asset_name, "rb");
+    file = fopen(asset_path, "rb");
 
     if (file == NULL) {
         return -1;
@@ -255,28 +291,32 @@ int handle_open() {
         return -1;
     }
 
-    sprintf(command_to_send, "OPA %s %s %s %d %d %s %ld %s\n", UID, password, name, start_value, time_active * 60, asset_fname, size, fdata_buffer);
+    sprintf(command_to_send, "OPA %s %s %s %d %d %s %ld %s\n", UID, password,
+            name, start_value, time_active * 60, asset_fname, size, fdata_buffer);
 
-    TCP_n = write(TCP_fd, command_to_send, strlen(command_to_send));
-    if (TCP_n == -1) 
+    TCP_n = write_TCP_loop(command_to_send, strlen(command_to_send));
+    if (TCP_n == -1) {
         return -1;
-
-    TCP_n = read(TCP_fd, server_reply, 256);
-    if (TCP_n == -1) 
-        return -1;
-
-    sscanf(server_reply, "%*s %s %s", result, new_AID);
-
-    if (!strcmp(result, "OK")) {
-        fprintf(stdout, "Auction with AID: %s created\n", new_AID);
-    } else if (!strcmp(result, "NOK")) {
-        fprintf(stdout, "Auction could not be started\n");
-    } else if (!strcmp(result, "NLG")) {
-        fprintf(stdout, "User not logged in\n");
-    } else {
-        fprintf(stderr, "Error creating auction\n");
     }
 
+    TCP_n = read_TCP_loop(server_reply);
+    if (TCP_n == -1) {
+        return -1;
+    }
+
+    printf("%s\n", server_reply);
+
+    sscanf(server_reply, "%*s %s %s", status, new_AID);
+
+    if (!strcmp(status, "OK")) {
+        fprintf(stdout, "Auction with AID: %s created\n", new_AID);
+    } else if (!strcmp(status, "NOK")) {
+        fprintf(stdout, "Auction could not be started\n");
+    } else if (!strcmp(status, "NLG")) {
+        fprintf(stdout, "User %s not logged in\n", UID);
+    } else {
+        return -1;
+    }
 
     freeaddrinfo(TCP_res);
     close(TCP_fd);
@@ -288,13 +328,61 @@ int handle_open() {
 }
 
 int handle_close() {
+    char status[10];
+    int connection_status;
+
+
     sscanf(input, "%*s %s", AID);
+
+    memset(command_to_send, 0, sizeof(command_to_send));
+    memset(server_reply, 0, sizeof(server_reply));
+
+    connection_status = initialize_TCP_connection();
+    if (connection_status == -1)
+        return -1;
+
+
+    sprintf(command_to_send, "CLS %s %s %s\n", UID, password, AID);
+
+    TCP_n = write_TCP_loop(command_to_send, strlen(command_to_send));
+    if (TCP_n == -1) {
+        puts("AQUI?");
+        return -1;
+    }
+
+    TCP_n = read_TCP_loop(server_reply);
+    if (TCP_n == -1) {
+        return -1;
+    }
+
+    printf("%s\n", server_reply);
+
+    sscanf(server_reply, "%*s %s", status);
+
+    if (!strcmp(status, "OK")) {
+        fprintf(stdout, "Auction: %s successfully closed\n", AID);
+    } else if (!strcmp(status, "NOK")) {
+        fprintf(stdout, "User %s doesn't exist or incorrect password\n", UID);
+    } else if (!strcmp(status, "NLG")) {
+        fprintf(stdout, "User %s not logged in\n", UID);
+    } else if (!strcmp(status, "EAU")) {
+        fprintf(stdout, "Auction %s doesn't exist\n", AID);
+    } else if (!strcmp(status, "EOW")) {
+        fprintf(stdout, "Auction %s not owned by user %s\n", AID, UID);
+    } else if (!strcmp(status, "END")) {
+        fprintf(stdout, "Auction %s has already finished\n", AID);
+    } else {
+        return -1;
+    }
+
+    freeaddrinfo(TCP_res);
+    close(TCP_fd);
 
     return 0;
 }
 
 int handle_myauctions() {
-    char result[10];
+    char status[10];
     char auction_list[500];
 
     memset(command_to_send, 0, sizeof(command_to_send));
@@ -302,23 +390,25 @@ int handle_myauctions() {
 
     sprintf(command_to_send, "LMA %s\n", UID);
 
-    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0, UDP_res->ai_addr, UDP_res->ai_addrlen);
+    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0,
+            UDP_res->ai_addr, UDP_res->ai_addrlen);
     if (UPD_n == -1)
         return -1;
 
-    UPD_n = recvfrom(UDP_fd, server_reply, 256, 0, (struct sockaddr*)&UPD_addr, &UDP_addrlen);
+    UPD_n = recvfrom(UDP_fd, server_reply, BUFFER_SIZE, 0,
+            (struct sockaddr *)&UPD_addr, &UDP_addrlen);
     if (UPD_n == -1)
         return -1;
 
-    sscanf(server_reply, "%*s %s %[^\n]", result, auction_list);
+    sscanf(server_reply, "%*s %s %[^\n]", status, auction_list);
 
-    if (!strcmp(result, "OK")) {
+    if (!strcmp(status, "OK")) {
         fprintf(stdout, "List of all auctions started by the logged in user:\n%s\n", auction_list);
-    } else if (!strcmp(result, "NOK")) {
+    } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "The logged in user hasn't started any auctions\n");
-    } else if (!strcmp(result, "NLG")) {
+    } else if (!strcmp(status, "NLG")) {
         fprintf(stdout, "User not logged in\n");
-    } else if (!strcmp(result, "ERR")) {
+    } else if (!strcmp(status, "ERR")) {
         fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
         fprintf(stderr, "Error listing user's auctions\n");
@@ -328,7 +418,7 @@ int handle_myauctions() {
 }
 
 int handle_mybids() {
-    char result[10];
+    char status[10];
     char auction_list[500];
 
     memset(command_to_send, 0, sizeof(command_to_send));
@@ -336,23 +426,28 @@ int handle_mybids() {
 
     sprintf(command_to_send, "LMB %s\n", UID);
 
-    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0, UDP_res->ai_addr, UDP_res->ai_addrlen);
+    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0,
+            UDP_res->ai_addr, UDP_res->ai_addrlen);
     if (UPD_n == -1)
         return -1;
 
-    UPD_n = recvfrom(UDP_fd, server_reply, 256, 0, (struct sockaddr*)&UPD_addr, &UDP_addrlen);
+    UPD_n = recvfrom(UDP_fd, server_reply, BUFFER_SIZE, 0,
+            (struct sockaddr *)&UPD_addr, &UDP_addrlen);
     if (UPD_n == -1)
         return -1;
 
-    sscanf(server_reply, "%*s %s %[^\n]", result, auction_list);
+    sscanf(server_reply, "%*s %s %[^\n]", status, auction_list);
 
-    if (!strcmp(result, "OK")) {
-        fprintf(stdout, "List of all auctions in which the logged in user has placed bids:\n%s\n", auction_list);
-    } else if (!strcmp(result, "NOK")) {
+    if (!strcmp(status, "OK")) {
+        fprintf(stdout,
+                "List of all auctions in which the logged in user has placed "
+                "bids:\n%s\n",
+                auction_list);
+    } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "The logged in user hasn't placed any bids\n");
-    } else if (!strcmp(result, "NLG")) {
+    } else if (!strcmp(status, "NLG")) {
         fprintf(stdout, "User not logged in\n");
-    } else if (!strcmp(result, "ERR")) {
+    } else if (!strcmp(status, "ERR")) {
         fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
         return -1;
@@ -362,29 +457,30 @@ int handle_mybids() {
 }
 
 int handle_list() {
-    char result[10];
-    char auction_list[1000];
+    char status[10];
+    char auction_list[LIST_SIZE];
 
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
 
     sprintf(command_to_send, "LST\n");
 
-    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0, UDP_res->ai_addr, UDP_res->ai_addrlen);
+    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0,
+            UDP_res->ai_addr, UDP_res->ai_addrlen);
     if (UPD_n == -1)
         return -1;
 
-    UPD_n = recvfrom(UDP_fd, server_reply, 256, 0, (struct sockaddr*)&UPD_addr, &UDP_addrlen);
+    UPD_n = recvfrom(UDP_fd, server_reply, LIST_SIZE, 0, (struct sockaddr *)&UPD_addr, &UDP_addrlen);
     if (UPD_n == -1)
         return -1;
 
-    sscanf(server_reply, "%*s %s %[^\n]", result, auction_list);
+    sscanf(server_reply, "%*s %s %[^\n]", status, auction_list);
 
-    if (!strcmp(result, "OK")) {
+    if (!strcmp(status, "OK")) {
         fprintf(stdout, "List of all auctions:\n%s\n", auction_list);
-    } else if (!strcmp(result, "NOK")) {
+    } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "No auction started\n");
-    } else if (!strcmp(result, "ERR")) {
+    } else if (!strcmp(status, "ERR")) {
         fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
         return -1;
@@ -406,7 +502,7 @@ int handle_bid() {
 }
 
 int handle_show_record() {
-    char result[10];
+    char status[10];
     char auction_list[500];
 
     memset(server_reply, 0, sizeof(server_reply));
@@ -415,21 +511,24 @@ int handle_show_record() {
 
     sprintf(command_to_send, "SRC %s\n", AID);
 
-    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0, UDP_res->ai_addr, UDP_res->ai_addrlen);
+    UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0,
+            UDP_res->ai_addr, UDP_res->ai_addrlen);
     if (UPD_n == -1)
         return -1;
 
-    UPD_n = recvfrom(UDP_fd, server_reply, 256, 0, (struct sockaddr*)&UPD_addr, &UDP_addrlen);
+    UPD_n = recvfrom(UDP_fd, server_reply, BUFFER_SIZE, 0,
+            (struct sockaddr *)&UPD_addr, &UDP_addrlen);
     if (UPD_n == -1)
         return -1;
 
-    sscanf(server_reply, "%*s %s %[^\n]", result, auction_list);
+    sscanf(server_reply, "%*s %s %[^\n]", status, auction_list);
 
-    if (!strcmp(result, "OK")) {
-        fprintf(stdout, "Information and status of auction: %s\n%s\n", AID, auction_list);
-    } else if (!strcmp(result, "NOK")) {
+    if (!strcmp(status, "OK")) {
+        fprintf(stdout, "Information and status of auction: %s\n%s\n", AID,
+                auction_list);
+    } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "The auction with AID: %s does't exist\n", AID);
-    } else if (!strcmp(result, "ERR")) {
+    } else if (!strcmp(status, "ERR")) {
         fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
         return -1;
@@ -448,7 +547,7 @@ int receive_user_input() {
 
     if (!strcmp(command, "login")) {
         handler = handle_login();
-        if (handler == -1) 
+        if (handler == -1)
             fprintf(stderr, "Error logging in the user\n");
     } else if (!strcmp(command, "logout")) {
         handler = handle_logout();
@@ -458,14 +557,20 @@ int receive_user_input() {
         handler = handle_unregister();
         if (handler == -1)
             fprintf(stdout, "Error unregistering user\n");
+
+        handler = handle_logout();
+        if (handler == -1)
+            fprintf(stdout, "Error logging out the user\n");
     } else if (!strcmp(command, "exit")) {
         handle_exit();
     } else if (!strcmp(command, "open")) {
         handler = handle_open();
         if (handler == -1)
-            fprintf(stderr, "Error opening asset\n");
+            fprintf(stderr, "Error opening auction\n");
     } else if (!strcmp(command, "close")) {
-        handle_close();
+        handler = handle_close();
+        if (handler == -1)
+            fprintf(stderr, "Error closing auction\n");
     } else if (!strcmp(command, "myauctions") || !strcmp(command, "ma")) {
         handler = handle_myauctions();
         if (handler == -1)
@@ -498,11 +603,11 @@ int main(int argc, char **argv) {
 
     if (parse_args(argc, argv) == -1)
         exit(1);
-    
+
     UDP_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (UDP_fd == -1)
         exit(1);
-    
+
     memset(&UPD_hints, 0, sizeof(UPD_hints));
     memset(server_reply, 0, sizeof(server_reply));
     memset(command_to_send, 0, sizeof(command_to_send));
@@ -512,14 +617,14 @@ int main(int argc, char **argv) {
     memset(password, 0, sizeof(password));
     memset(name, 0, sizeof(name));
     memset(asset_fname, 0, sizeof(asset_fname));
-    
+
     UPD_hints.ai_family = AF_INET;
     UPD_hints.ai_socktype = SOCK_DGRAM;
-    
+
     printf("%s %s\n", AS_addr, AS_port);
-    
+
     UPD_errcode = getaddrinfo(AS_addr, AS_port, &UPD_hints, &UDP_res);
-    if (UPD_errcode != 0) 
+    if (UPD_errcode != 0)
         exit(1);
 
     while (1) {
@@ -527,11 +632,9 @@ int main(int argc, char **argv) {
         r = receive_user_input();
 
         if (r == -1) {
-            fprintf(stderr, "Error getting user input\n");
+            fprintf(stderr, "Error getting user input. Unknown command\n");
             continue;
         }
-
-        printf("%s", server_reply);
 
         if (!strcmp(command, "exit")) {
             freeaddrinfo(UDP_res);
