@@ -1,26 +1,4 @@
-#ifndef AUCTION_SERVER_H
-#define AUCTION_SERVER_H
-
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
-#include <dirent.h>
-#include <ctype.h>
-#include <errno.h>
-
-#define OK 0
-#define NOK 1
-#define REG 2
-#define UNR 3
-#define ERR 4
+#include "AS_helper.h"
 
 // USER -----------------------------------------------------------------------------
 int CreateUserDir(char *UID) {
@@ -225,4 +203,3 @@ int check_syntax(char *UID, char *pw) {
     return 1;
 }
 
-#endif
