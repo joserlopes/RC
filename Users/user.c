@@ -97,11 +97,17 @@ int handle_login() {
         fprintf(stdout, "Successful login\n");
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "Incorrect login attempt\n");
+        memset(UID, 0, sizeof(UID));
+        memset(password, 0, sizeof(password));
     } else if (!strcmp(status, "REG")) {
         fprintf(stdout, "New user registered\n");
     } else if (!strcmp(status, "ERR")) {
+        memset(UID, 0, sizeof(UID));
+        memset(password, 0, sizeof(password));
         fprintf(stdout, "Syntax error or invalid parameter values\n");
     } else {
+        memset(UID, 0, sizeof(UID));
+        memset(password, 0, sizeof(password));
         return -1;
     }
 
@@ -133,6 +139,8 @@ int handle_logout() {
 
     if (!strcmp(status, "OK")) {
         fprintf(stdout, "Sucessful logout\n");
+        memset(UID, 0, sizeof(UID));
+        memset(password, 0, sizeof(password));
     } else if (!strcmp(status, "UNR")) {
         fprintf(stdout, "Unknown user\n");
     } else if (!strcmp(status, "NOK")) {
@@ -172,6 +180,8 @@ int handle_unregister() {
 
     if (!strcmp(status, "OK")) {
         fprintf(stdout, "Sucessful unregister\n");
+        memset(UID, 0, sizeof(UID));
+        memset(password, 0, sizeof(password));
     } else if (!strcmp(status, "UNR")) {
         fprintf(stdout, "Unknown user\n");
     } else if (!strcmp(status, "NOK")) {
@@ -557,10 +567,6 @@ int receive_user_input() {
         handler = handle_unregister();
         if (handler == -1)
             fprintf(stdout, "Error unregistering user\n");
-
-        handler = handle_logout();
-        if (handler == -1)
-            fprintf(stdout, "Error logging out the user\n");
     } else if (!strcmp(command, "exit")) {
         handle_exit();
     } else if (!strcmp(command, "open")) {
