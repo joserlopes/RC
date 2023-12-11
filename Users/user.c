@@ -103,8 +103,10 @@ int handle_login() {
         fprintf(stdout, "Incorrect login attempt\n");
     } else if (!strcmp(result, "REG")) {
         fprintf(stdout, "New user registered\n");
+    } else if (!strcmp(result, "ERR")) {
+        fprintf(stdout, "Syntax error or invalid parameter values\n");
     } else {
-        fprintf(stdout, "Unknown server reply\n");
+        return -1;
     }
 
     return 0;
@@ -137,8 +139,10 @@ int handle_logout() {
         fprintf(stdout, "Unknown user\n");
     } else if (!strcmp(result, "NOK")) {
         fprintf(stdout, "User not logged in\n");
+    } else if (!strcmp(result, "ERR")) {
+        fprintf(stdout, "Syntax error or invalid parameter values\n");
     } else {
-        fprintf(stdout, "Error logging out the user\n");
+        return -1;
     }
 
     return 1;
@@ -171,14 +175,17 @@ int handle_unregister() {
         fprintf(stdout, "Unknown user\n");
     } else if (!strcmp(result, "NOK")) {
         fprintf(stdout, "Incorrect unregister attempt\n");
+    } else if (!strcmp(result, "ERR")) {
+        fprintf(stdout, "Syntax error or invalid parameter values\n");
     } else {
-        fprintf(stdout, "unknown server reply\n");
+        return -1;
     }
 
     return 0;
 }
 
 int handle_exit() {
+    //TODO: Ver a cena do User ter que informar que o utilizador ainda está logado caso ele tente fazer exit
     return 0;
 }
 
@@ -311,8 +318,10 @@ int handle_myauctions() {
         fprintf(stdout, "The logged in user hasn't started any auctions\n");
     } else if (!strcmp(result, "NLG")) {
         fprintf(stdout, "User not logged in\n");
+    } else if (!strcmp(result, "ERR")) {
+        fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
-        fprintf(stderr, "Error listing user auctions\n");
+        fprintf(stderr, "Error listing user's auctions\n");
     }
 
     return 0;
@@ -343,8 +352,10 @@ int handle_mybids() {
         fprintf(stdout, "The logged in user hasn't placed any bids\n");
     } else if (!strcmp(result, "NLG")) {
         fprintf(stdout, "User not logged in\n");
+    } else if (!strcmp(result, "ERR")) {
+        fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
-        fprintf(stderr, "Error listing user bids\n");
+        return -1;
     }
 
     return 0;
@@ -373,9 +384,12 @@ int handle_list() {
         fprintf(stdout, "List of all auctions:\n%s\n", auction_list);
     } else if (!strcmp(result, "NOK")) {
         fprintf(stdout, "No auction started\n");
+    } else if (!strcmp(result, "ERR")) {
+        fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
-        fprintf(stderr, "Error listing auctions\n");
+        return -1;
     }
+
     return 0;
 }
 
@@ -415,8 +429,10 @@ int handle_show_record() {
         fprintf(stdout, "Information and status of auction: %s\n%s\n", AID, auction_list);
     } else if (!strcmp(result, "NOK")) {
         fprintf(stdout, "The auction with AID: %s does't exist\n", AID);
+    } else if (!strcmp(result, "ERR")) {
+        fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
-        fprintf(stderr, "Error showing record\n");
+        return -1;
     }
 
     return 0;
@@ -435,9 +451,13 @@ int receive_user_input() {
         if (handler == -1) 
             fprintf(stderr, "Error logging in the user\n");
     } else if (!strcmp(command, "logout")) {
-        handle_logout();
+        handler = handle_logout();
+        if (handler == -1)
+            fprintf(stdout, "Error logging out the user\n");
     } else if (!strcmp(command, "unregister")) {
-        handle_unregister();
+        handler = handle_unregister();
+        if (handler == -1)
+            fprintf(stdout, "Error unregistering user\n");
     } else if (!strcmp(command, "exit")) {
         handle_exit();
     } else if (!strcmp(command, "open")) {
@@ -447,17 +467,25 @@ int receive_user_input() {
     } else if (!strcmp(command, "close")) {
         handle_close();
     } else if (!strcmp(command, "myauctions") || !strcmp(command, "ma")) {
-        handle_myauctions();
+        handler = handle_myauctions();
+        if (handler == -1)
+            fprintf(stderr, "Error listing user's auctions\n");
     } else if (!strcmp(command, "mybids") || !strcmp(command, "mb")) {
-        handle_mybids();
+        handler = handle_mybids();
+        if (handler == -1)
+            fprintf(stderr, "Error listing user's bids\n");
     } else if (!strcmp(command, "list") || !strcmp(command, "l")) {
-        handle_list();
+        handler = handle_list();
+        if (handler == -1)
+            fprintf(stderr, "Error listing the auctions present in the server\n");
     } else if (!strcmp(command, "show_asset") || !strcmp(command, "sa")) {
         handle_show_asset();
     } else if (!strcmp(command, "bid") || !strcmp(command, "b")) {
         handle_bid();
     } else if (!strcmp(command, "show_record") || !strcmp(command, "sr")) {
-        handle_show_record();
+        handler = handle_show_record();
+        if (handler == -1)
+            fprintf(stderr, "Error showing record\n");
     } else {
         return -1;
     }
@@ -502,6 +530,8 @@ int main(int argc, char **argv) {
             fprintf(stderr, "Error getting user input\n");
             continue;
         }
+
+        printf("%s", server_reply);
 
         if (!strcmp(command, "exit")) {
             freeaddrinfo(UDP_res);
