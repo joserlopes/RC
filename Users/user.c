@@ -1,6 +1,7 @@
 #include "user.h"
+#include "../utils/checker.h"
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
 
 int UDP_fd, TCP_fd, UPD_errcode, TCP_errcode;
 ssize_t UPD_n, TCP_n;
@@ -20,8 +21,9 @@ char UID[7];
 char password[9];
 char name[11];
 char asset_fname[30];
-int start_value, time_active;
-char AID[3];
+char AID[4];
+char start_value[8];
+char time_active[7];
 
 int parse_args(int argc, char **argv) {
     switch (argc) {
@@ -78,6 +80,9 @@ int handle_login() {
 
     sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "LIN %s %s\n", UID, password);
+
+    if (!check_UID_password(UID, password))
+        return -1;
 
     UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0,
     UDP_res->ai_addr, UDP_res->ai_addrlen);
@@ -175,13 +180,12 @@ int handle_unregister() {
     if (UPD_n == -1)
         return -1;
 
-    printf("%s\n", server_reply);
+    printf("%s\n", command_to_send);
+
     sscanf(server_reply, "%*s %s", status);
 
     if (!strcmp(status, "OK")) {
         fprintf(stdout, "Sucessful unregister\n");
-        memset(UID, 0, sizeof(UID));
-        memset(password, 0, sizeof(password));
     } else if (!strcmp(status, "UNR")) {
         fprintf(stdout, "Unknown user\n");
     } else if (!strcmp(status, "NOK")) {
@@ -201,7 +205,7 @@ int handle_exit() {
     return 0;
 }
 
-int write_TCP_loop(char *fdata_buffer, ssize_t size) {
+long write_TCP_loop(char *fdata_buffer, ssize_t size) {
     ssize_t written;
     ssize_t total_written = 0;
 
@@ -219,19 +223,20 @@ int write_TCP_loop(char *fdata_buffer, ssize_t size) {
     return 0;
 }
 
-int read_TCP_loop(char *reply_buffer) {
+long read_TCP_loop(char *reply_buffer, ssize_t size) {
     ssize_t received;
     ssize_t total_received = 0;
 
     while ((received = read(TCP_fd, reply_buffer + total_received,
-                    sizeof(reply_buffer))) > 0) {
+                    size - total_received)) > 0) {
         total_received += received;
     }
 
-    if (received == -1)
+    if (received == -1) {
         return -1;
+    }
 
-    return 0;
+    return total_received;
 }
 
 int initialize_TCP_connection() {
@@ -261,8 +266,8 @@ int handle_open() {
     char new_AID[10];
     int connection_status;
 
-    sscanf(input, "%*s %s %s %d %d", name, asset_fname, &start_value,
-            &time_active);
+    sscanf(input, "%*s %s %s %s %s", name, asset_fname, start_value,
+            time_active);
 
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
@@ -302,14 +307,14 @@ int handle_open() {
     }
 
     sprintf(command_to_send, "OPA %s %s %s %d %d %s %ld %s\n", UID, password,
-            name, start_value, time_active * 60, asset_fname, size, fdata_buffer);
+            name, atoi(start_value), atoi(time_active) * 60, asset_fname, size, fdata_buffer);
 
     TCP_n = write_TCP_loop(command_to_send, strlen(command_to_send));
     if (TCP_n == -1) {
         return -1;
     }
 
-    TCP_n = read_TCP_loop(server_reply);
+    TCP_n = read_TCP_loop(server_reply, sizeof(server_reply));
     if (TCP_n == -1) {
         return -1;
     }
@@ -351,16 +356,14 @@ int handle_close() {
     if (connection_status == -1)
         return -1;
 
-
     sprintf(command_to_send, "CLS %s %s %s\n", UID, password, AID);
 
     TCP_n = write_TCP_loop(command_to_send, strlen(command_to_send));
     if (TCP_n == -1) {
-        puts("AQUI?");
         return -1;
     }
 
-    TCP_n = read_TCP_loop(server_reply);
+    TCP_n = read_TCP_loop(server_reply, sizeof(server_reply));
     if (TCP_n == -1) {
         return -1;
     }
@@ -499,8 +502,90 @@ int handle_list() {
     return 0;
 }
 
+int CreateAssetFile(char *fname, char *fsize, char *fdata) {
+    char fpath[27];
+    FILE *fp;
+
+    sprintf(fpath, "./%s", fname);
+    fp = fopen(fpath, "w");
+    if (fp == NULL)
+        return -1;
+
+    fprintf(fp, "%s", fdata);
+    fclose(fp);
+
+    return 0;
+}
+
 int handle_show_asset() {
+    char status[10];
+    char fname[25];
+    char fdata[1217966];
+    long fsize;
+    int connection_status;
+    int file_creation;
+    FILE *file;
+
     sscanf(input, "%*s %s", AID);
+
+    memset(command_to_send, 0, sizeof(command_to_send));
+    memset(server_reply, 0, sizeof(server_reply));
+
+    connection_status = initialize_TCP_connection();
+    if (connection_status == -1)
+        return -1;
+
+    sprintf(command_to_send, "SAS %s\n", AID);
+
+    TCP_n = write_TCP_loop(command_to_send, strlen(command_to_send));
+    if (TCP_n == -1) {
+        return -1;
+    }
+
+    char *accumulated_reply = NULL;
+
+    ssize_t accumulated_size = 0;
+
+    do {
+        TCP_n = read_TCP_loop(server_reply, sizeof(server_reply));
+
+        if (TCP_n > 0) {
+            accumulated_reply = (char *)realloc(accumulated_reply, accumulated_size + TCP_n);
+            if (accumulated_reply == NULL) {
+                free(accumulated_reply);
+                return -1;
+            }
+
+            memcpy(accumulated_reply + accumulated_size, server_reply, TCP_n);
+            accumulated_size += TCP_n;
+        }
+
+        memset(server_reply, 0, sizeof(server_reply));
+
+    } while (TCP_n > 0);
+
+    if (TCP_n == -1) {
+        return -1;
+    }
+
+    sscanf(accumulated_reply, "%*s %s %s %ld %s", status, fname, &fsize, fdata);
+
+    if (!strcmp(status, "OK")) {
+        fprintf(stdout, "Está tudo ok!!\n");
+
+        file = fopen(fname, "wb");
+        file_creation = fwrite(fdata, 1, fsize, file);
+
+        if (file_creation == -1) {
+            return -1;
+        }
+    }
+
+    freeaddrinfo(TCP_res);
+    close(TCP_fd);
+
+    free(accumulated_reply);
+    fclose(file);
 
     return 0;
 }
@@ -647,5 +732,7 @@ int main(int argc, char **argv) {
             close(UDP_fd);
             return 0;
         }
+
+        memset(command, 0, sizeof(command));
     }
 }

@@ -1,4 +1,5 @@
 #include "AS_helper.h"
+#include "../utils/checker.h"
 
 // USER -----------------------------------------------------------------------------
 int CreateUserDir(char *UID) {
@@ -38,7 +39,7 @@ int CheckUserDir(char *UID) {
 
     sprintf(user_name, "USERS/%s", UID);
 
-    if (dir = opendir(user_name)) {
+    if ((dir = opendir(user_name))) {
         /* Directory exists. */
         /* User is registered */
         closedir(dir);
@@ -50,7 +51,7 @@ int CheckUserDir(char *UID) {
     return 1;
 }
 
-int CheckPreviouslyRegistered(char *UID) {
+int CheckUserRegistered(char *UID) {
     char pass_path[34];
     FILE *fp;
 
@@ -58,9 +59,10 @@ int CheckPreviouslyRegistered(char *UID) {
 
     if ((fp = fopen(pass_path, "r"))) {
         fclose(fp);
-        return 0;
+        return 1;
     }
-    return 1;
+
+    return 0;
 }
 
 // PASSWORD

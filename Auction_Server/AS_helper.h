@@ -25,7 +25,7 @@
 // USER -----------------------------------------------------------------------------
 int CreateUserDir(char *UID); 
 int CheckUserDir(char *UID); 
-int CheckPreviouslyRegistered(char *UID); 
+int CheckUserRegistered(char *UID); 
 
 // PASSWORD
 int CheckPassword(char *UID, char *pw); 

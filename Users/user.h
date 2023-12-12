@@ -27,8 +27,8 @@ int handle_list();
 int handle_show_record();
 // ---------------TCP-----------------
 int initialize_TCP_connection();
-int write_TCP_loop(char *fdata_buffer, ssize_t size);
-int read_TCP_loop(char *reply_buffer);
+long write_TCP_loop(char *fdata_buffer, ssize_t size);
+long read_TCP_loop(char *reply_buffer, ssize_t size);
 int handle_open();
 int handle_close();
 int handle_show_asset();

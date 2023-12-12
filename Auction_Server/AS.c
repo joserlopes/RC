@@ -1,6 +1,7 @@
-#include "AS.h"
+#include "AS_helper.h"
+#include "../utils/checker.h"
 
-int fd,errcode;
+int fd, errcode;
 int u,Verbose_mode = 0;
 ssize_t n;
 socklen_t addrlen;
@@ -58,13 +59,16 @@ int login_request() {
     char UID[10];
     char pw[10];
     char status[4];
-    sscanf(buffer, "%*s %s %s", UID, pw);
-    printf("%s %s\n", UID, pw);
 
-    if (!check_syntax(UID,pw))
+    memset(UID, 0, sizeof(UID));
+    memset(pw, 0, sizeof(pw));
+
+    sscanf(buffer, "%*s %s %s", UID, pw);
+
+    if (!check_UID_password(UID,pw))
         strcpy(status,"ERR");
     else if (CheckUserDir(UID)) {
-        if (CheckPreviouslyRegistered(UID)) {
+        if (!CheckUserRegistered(UID)) {
             CreateLogin(UID);
             CreatePassword(UID,pw);
             strcpy(status,"REG");
@@ -91,13 +95,16 @@ int logout_request(){
     char UID[10];
     char pw[10];
     char status[4];
-    sscanf(buffer, "%*s %s %s", UID, pw);
-    printf("%s %s\n", UID, pw);
 
-    if (!check_syntax(UID,pw))
+    memset(UID, 0, sizeof(UID));
+    memset(pw, 0, sizeof(pw));
+
+    sscanf(buffer, "%*s %s %s", UID, pw);
+
+    if (!check_UID_password(UID,pw))
         strcpy(status,"ERR");
-    else if (CheckUserDir(UID) || !CheckPreviouslyRegistered(UID)) {
-        if (CheckLogin(UID)) {
+    else if (CheckUserRegistered(UID)) {
+        if (CheckLogin(UID) && CheckPassword(UID, pw)) {
             EraseLogin(UID);
             strcpy(status,"OK");
         } else strcpy(status, "NOK");
@@ -110,17 +117,20 @@ int logout_request(){
 }
 
 
-int unresgister_request() {
+int unregister_request() {
     char UID[10];
     char pw[10];
     char status[4];
-    sscanf(buffer, "%*s %s %s", UID, pw);
-    printf("%s %s\n", UID, pw);
 
-    if (!check_syntax(UID,pw))
+    memset(UID, 0, sizeof(UID));
+    memset(pw, 0, sizeof(pw));
+
+    sscanf(buffer, "%*s %s %s", UID, pw);
+
+    if (!check_UID_password(UID,pw))
         strcpy(status,"ERR");
-    else if (CheckUserDir(UID) || !CheckPreviouslyRegistered(UID)) {
-        if (CheckLogin(UID) && CheckPassword(UID,pw)) {
+    else if (CheckUserRegistered(UID)) {
+        if (CheckLogin(UID) && CheckPassword(UID, pw)) {
             EraseLogin(UID);
             ErasePassword(UID);
             strcpy(status,"OK");
@@ -128,7 +138,7 @@ int unresgister_request() {
     } else strcpy(status,"UNR");
     
     sprintf(reply,"RUR %s\n", status);
-    printf("%s\n", reply);
+    // printf("%s\n", reply);
 
     return 0;
 }
@@ -144,7 +154,7 @@ int process_user_request() {
     } else if (!strcmp(request, "LOU")) {
         logout_request();
     } else if (!strcmp(request, "UNR")) {
-        unresgister_request();
+        unregister_request();
     }
     return 0;
 }
@@ -175,10 +185,11 @@ int main(int argc, char **argv) {
     while (1) {
         addrlen = sizeof(addr);
         
-        n = recvfrom(fd,buffer,256,0,(struct sockaddr*)&addr,&addrlen);
+        n = recvfrom(fd, buffer, 256, 0, (struct sockaddr*)&addr, &addrlen);
         if(n == -1)/*error*/exit(1);
 
-        write(1,"received: ",10);write(1,buffer,n);
+        write(1, "received: ", 10);
+        write(1, buffer, n);
 
         u = process_user_request();
         if (u == -1) {
