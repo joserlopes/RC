@@ -2,6 +2,7 @@
 #include "../utils/checker.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 int UDP_fd, TCP_fd, UPD_errcode, TCP_errcode;
@@ -270,15 +271,6 @@ int handle_open() {
     sscanf(input, "%*s %s %s %s %s", name, asset_fname, start_value,
             time_active);
 
-    if (!check_asset_name(name))
-        puts("FOI NO ASSET NAME");
-
-    if (!check_auction_start_value(start_value))
-        puts("FOI NO START VALUE");
-
-    if (!check_auction_duration(time_active))
-        puts("FOI NO DURATION");
-
     if (!check_asset_name(name) || !check_auction_start_value(start_value) || !check_auction_duration(time_active))
         return -1;
 
@@ -337,11 +329,13 @@ int handle_open() {
     sscanf(server_reply, "%*s %s %s", status, new_AID);
 
     if (!strcmp(status, "OK")) {
-        fprintf(stdout, "Auction with AID: %s created\n", new_AID);
+        fprintf(stdout, "Auction %s created\n", new_AID);
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "Auction could not be started\n");
     } else if (!strcmp(status, "NLG")) {
         fprintf(stdout, "User %s not logged in\n", UID);
+    } else if (!strcmp(status, "ERR")) {
+        fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
         return -1;
     }
@@ -358,7 +352,6 @@ int handle_open() {
 int handle_close() {
     char status[10];
     int connection_status;
-
 
     sscanf(input, "%*s %s", AID);
 
@@ -386,7 +379,7 @@ int handle_close() {
     sscanf(server_reply, "%*s %s", status);
 
     if (!strcmp(status, "OK")) {
-        fprintf(stdout, "Auction: %s successfully closed\n", AID);
+        fprintf(stdout, "Auction %s successfully closed\n", AID);
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "User %s doesn't exist or incorrect password\n", UID);
     } else if (!strcmp(status, "NLG")) {
@@ -397,6 +390,8 @@ int handle_close() {
         fprintf(stdout, "Auction %s not owned by user %s\n", AID, UID);
     } else if (!strcmp(status, "END")) {
         fprintf(stdout, "Auction %s has already finished\n", AID);
+    } else if (!strcmp(status, "ERR")) {
+        fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
         return -1;
     }
@@ -437,7 +432,7 @@ int handle_myauctions() {
     } else if (!strcmp(status, "ERR")) {
         fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
-        fprintf(stderr, "Error listing user's auctions\n");
+        return -1;
     }
 
     return 0;
@@ -608,6 +603,8 @@ int handle_show_asset() {
         fprintf(stdout, "Stored file %s with size %ld\n", fname, fsize);
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "No file to be sent\n");
+    } else if (!strcmp(status, "ERR")) {
+        fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
         return -1;
     }
@@ -660,6 +657,8 @@ int handle_bid() {
         fprintf(stdout, "Bid value too low\n");
     } else if (!strcmp(status, "ILG")) {
         fprintf(stdout, "Cannot bid on an auction hosted by yourself\n");
+    } else if (!strcmp(status, "ERR")) {
+        fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
         return -1;
     }
@@ -697,7 +696,7 @@ int handle_show_record() {
         fprintf(stdout, "Information and status of auction %s\n%s\n", AID,
                 auction_list);
     } else if (!strcmp(status, "NOK")) {
-        fprintf(stdout, "The auction with AID: %s does't exist\n", AID);
+        fprintf(stdout, "Auction %s does't exist\n", AID);
     } else if (!strcmp(status, "ERR")) {
         fprintf(stderr, "Syntax error or invalid parameter values\n");
     } else {
@@ -709,6 +708,7 @@ int handle_show_record() {
 
 int receive_user_input() {
     int handler;
+
     if (fgets(input, sizeof(input), stdin) == NULL) {
         return -1;
     }
