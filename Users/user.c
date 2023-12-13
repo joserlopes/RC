@@ -26,6 +26,7 @@ char asset_fname[30];
 char AID[4];
 char start_value[8];
 char time_active[7];
+int logged_in = 0;
 
 int parse_args(int argc, char **argv) {
     switch (argc) {
@@ -77,6 +78,11 @@ int parse_args(int argc, char **argv) {
 int handle_login() {
     char status[10];
 
+    if (logged_in) {
+        fprintf(stdout, "A user is already logged in. Please logout first\n");
+        return 0;
+    }
+
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
 
@@ -102,12 +108,14 @@ int handle_login() {
 
     if (!strcmp(status, "OK")) {
         fprintf(stdout, "Successful login\n");
+        logged_in = 1;
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "Incorrect login attempt\n");
         memset(UID, 0, sizeof(UID));
         memset(password, 0, sizeof(password));
     } else if (!strcmp(status, "REG")) {
         fprintf(stdout, "New user registered\n");
+        logged_in = 1;
     } else if (!strcmp(status, "ERR")) {
         memset(UID, 0, sizeof(UID));
         memset(password, 0, sizeof(password));
@@ -148,6 +156,7 @@ int handle_logout() {
         fprintf(stdout, "Sucessful logout\n");
         memset(UID, 0, sizeof(UID));
         memset(password, 0, sizeof(password));
+        logged_in = 0;
     } else if (!strcmp(status, "UNR")) {
         fprintf(stdout, "Unknown user\n");
     } else if (!strcmp(status, "NOK")) {
@@ -186,6 +195,7 @@ int handle_unregister() {
 
     if (!strcmp(status, "OK")) {
         fprintf(stdout, "Sucessful unregister\n");
+        logged_in = 0;
     } else if (!strcmp(status, "UNR")) {
         fprintf(stdout, "Unknown user\n");
     } else if (!strcmp(status, "NOK")) {
@@ -200,8 +210,11 @@ int handle_unregister() {
 }
 
 int handle_exit() {
-    // TODO: Ver a cena do User ter que informar que o utilizador ainda está
-    // logado caso ele tente fazer exit
+    if (logged_in) {
+        fprintf(stdout, "The user is logged in. Please log out before exiting\n");
+        return LOGGED_IN;
+    }
+
     return 0;
 }
 
@@ -724,7 +737,9 @@ int receive_user_input() {
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else if (!strcmp(command, "exit")) {
-        handle_exit();
+        handler = handle_exit();
+        if (handler == LOGGED_IN)
+            return LOGGED_IN;
     } else if (!strcmp(command, "open")) {
         handler = handle_open();
         if (handler == UNKNOWN_REPLY)
@@ -825,6 +840,8 @@ int main(int argc, char **argv) {
         } else if (r == ERR_REPLY) {
             fprintf(stderr, "ERR reply received. Terminating interaction with the server...\n");
             return 0;
+        } else if (r == LOGGED_IN) {
+            continue;
         }
 
         if (!strcmp(command, "exit")) {
