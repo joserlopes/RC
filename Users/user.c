@@ -279,7 +279,7 @@ int handle_open() {
 
     FILE *file;
 
-    sprintf(asset_path, "../assets/%s", asset_fname);
+    sprintf(asset_path, "assets/%s", asset_fname);
 
     connection_status = initialize_TCP_connection();
     if (connection_status == -1)
