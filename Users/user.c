@@ -2,7 +2,6 @@
 #include "../utils/checker.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 int UDP_fd, TCP_fd, UPD_errcode, TCP_errcode;
@@ -532,10 +531,10 @@ int CreateAssetFile(char *fname, char *fsize, char *fdata) {
 }
 
 int handle_show_asset() {
-    char status[10];
-    char fname[25];
-    char fdata[1217966];
-    long fsize;
+    char *status;
+    char *fname;
+    char *fdata;
+    char *fsizeStr;
     int connection_status;
     int file_creation;
     FILE *file;
@@ -544,6 +543,9 @@ int handle_show_asset() {
 
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
+    // memset(fdata, 0, sizeof(fdata));
+    // memset(status, 0, sizeof(status));
+    // memset(fname, 0, sizeof(fname));
 
     connection_status = initialize_TCP_connection();
     if (connection_status == -1)
@@ -582,17 +584,32 @@ int handle_show_asset() {
         return -1;
     }
 
-    sscanf(accumulated_reply, "%*s %s %s %ld %s", status, fname, &fsize, fdata);
+    // sscanf(accumulated_reply, "%*s %s %s %ld %s", status, fname, &fsize, fdata);
+
+    // Ignore the first part of the reply
+    strtok(accumulated_reply, " ");
+    status = strtok(NULL, " ");
+
+    fname = strtok(NULL, " ");
+    fsizeStr = strtok(NULL, " ");
+    fdata = strtok(NULL, "\0"); 
+
+    printf("%s %s %s\n", status, fname, fsizeStr);
+
+    ssize_t fsize = strtoul(fsizeStr, NULL, 10);
 
     if (!strcmp(status, "OK")) {
-        fprintf(stdout, "Está tudo ok!!\n");
-
         file = fopen(fname, "wb");
         file_creation = fwrite(fdata, 1, fsize, file);
 
         if (file_creation == -1) {
             return -1;
         }
+        fprintf(stdout, "Stored file %s with size %ld\n", fname, fsize);
+    } else if (!strcmp(status, "NOK")) {
+        fprintf(stdout, "No file to be sent\n");
+    } else {
+        return -1;
     }
 
     freeaddrinfo(TCP_res);
@@ -677,7 +694,7 @@ int handle_show_record() {
     sscanf(server_reply, "%*s %s %[^\n]", status, auction_list);
 
     if (!strcmp(status, "OK")) {
-        fprintf(stdout, "Information and status of auction: %s\n%s\n", AID,
+        fprintf(stdout, "Information and status of auction %s\n%s\n", AID,
                 auction_list);
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "The auction with AID: %s does't exist\n", AID);
