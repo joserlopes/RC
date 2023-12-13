@@ -111,11 +111,11 @@ int handle_login() {
     } else if (!strcmp(status, "ERR")) {
         memset(UID, 0, sizeof(UID));
         memset(password, 0, sizeof(password));
-        fprintf(stdout, "Syntax error or invalid parameter values\n");
+        return ERR_REPLY;
     } else {
         memset(UID, 0, sizeof(UID));
         memset(password, 0, sizeof(password));
-        return -1;
+        return UNKNOWN_REPLY;
     }
 
     return 0;
@@ -153,9 +153,9 @@ int handle_logout() {
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "User not logged in\n");
     } else if (!strcmp(status, "ERR")) {
-        fprintf(stdout, "Syntax error or invalid parameter values\n");
+        return ERR_REPLY;
     } else {
-        return -1;
+        return UNKNOWN_REPLY;
     }
 
     return 0;
@@ -182,8 +182,6 @@ int handle_unregister() {
     if (UPD_n == -1)
         return -1;
 
-    printf("%s\n", command_to_send);
-
     sscanf(server_reply, "%*s %s", status);
 
     if (!strcmp(status, "OK")) {
@@ -193,9 +191,9 @@ int handle_unregister() {
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "Incorrect unregister attempt\n");
     } else if (!strcmp(status, "ERR")) {
-        fprintf(stdout, "Syntax error or invalid parameter values\n");
+        return ERR_REPLY;
     } else {
-        return -1;
+        return UNKNOWN_REPLY;
     }
 
     return 0;
@@ -324,8 +322,6 @@ int handle_open() {
         return -1;
     }
 
-    printf("%s\n", server_reply);
-
     sscanf(server_reply, "%*s %s %s", status, new_AID);
 
     if (!strcmp(status, "OK")) {
@@ -335,9 +331,9 @@ int handle_open() {
     } else if (!strcmp(status, "NLG")) {
         fprintf(stdout, "User %s not logged in\n", UID);
     } else if (!strcmp(status, "ERR")) {
-        fprintf(stderr, "Syntax error or invalid parameter values\n");
+        return ERR_REPLY;
     } else {
-        return -1;
+        return UNKNOWN_REPLY;
     }
 
     freeaddrinfo(TCP_res);
@@ -374,8 +370,6 @@ int handle_close() {
         return -1;
     }
 
-    printf("%s\n", server_reply);
-
     sscanf(server_reply, "%*s %s", status);
 
     if (!strcmp(status, "OK")) {
@@ -391,9 +385,9 @@ int handle_close() {
     } else if (!strcmp(status, "END")) {
         fprintf(stdout, "Auction %s has already finished\n", AID);
     } else if (!strcmp(status, "ERR")) {
-        fprintf(stderr, "Syntax error or invalid parameter values\n");
+        return ERR_REPLY;
     } else {
-        return -1;
+        return UNKNOWN_REPLY;
     }
 
     freeaddrinfo(TCP_res);
@@ -430,9 +424,9 @@ int handle_myauctions() {
     } else if (!strcmp(status, "NLG")) {
         fprintf(stdout, "User not logged in\n");
     } else if (!strcmp(status, "ERR")) {
-        fprintf(stderr, "Syntax error or invalid parameter values\n");
+        return ERR_REPLY;
     } else {
-        return -1;
+        return UNKNOWN_REPLY;
     }
 
     return 0;
@@ -469,9 +463,9 @@ int handle_mybids() {
     } else if (!strcmp(status, "NLG")) {
         fprintf(stdout, "User not logged in\n");
     } else if (!strcmp(status, "ERR")) {
-        fprintf(stderr, "Syntax error or invalid parameter values\n");
+        return ERR_REPLY;
     } else {
-        return -1;
+        return UNKNOWN_REPLY;
     }
 
     return 0;
@@ -502,9 +496,9 @@ int handle_list() {
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "No auction started\n");
     } else if (!strcmp(status, "ERR")) {
-        fprintf(stderr, "Syntax error or invalid parameter values\n");
+        return ERR_REPLY;
     } else {
-        return -1;
+        return UNKNOWN_REPLY;
     }
 
     return 0;
@@ -589,8 +583,6 @@ int handle_show_asset() {
     fsizeStr = strtok(NULL, " ");
     fdata = strtok(NULL, "\0"); 
 
-    printf("%s %s %s\n", status, fname, fsizeStr);
-
     ssize_t fsize = strtoul(fsizeStr, NULL, 10);
 
     if (!strcmp(status, "OK")) {
@@ -604,9 +596,9 @@ int handle_show_asset() {
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "No file to be sent\n");
     } else if (!strcmp(status, "ERR")) {
-        fprintf(stderr, "Syntax error or invalid parameter values\n");
+        return ERR_REPLY;
     } else {
-        return -1;
+        return UNKNOWN_REPLY;
     }
 
     freeaddrinfo(TCP_res);
@@ -643,8 +635,6 @@ int handle_bid() {
         return -1;
     }
 
-    printf("%s\n", server_reply);
-
     sscanf(server_reply, "%*s %s", status);
 
     if (!strcmp(status, "ACC")) {
@@ -658,9 +648,9 @@ int handle_bid() {
     } else if (!strcmp(status, "ILG")) {
         fprintf(stdout, "Cannot bid on an auction hosted by yourself\n");
     } else if (!strcmp(status, "ERR")) {
-        fprintf(stderr, "Syntax error or invalid parameter values\n");
+        return ERR_REPLY;
     } else {
-        return -1;
+        return UNKNOWN_REPLY;
     }
 
     freeaddrinfo(TCP_res);
@@ -698,9 +688,9 @@ int handle_show_record() {
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "Auction %s does't exist\n", AID);
     } else if (!strcmp(status, "ERR")) {
-        fprintf(stderr, "Syntax error or invalid parameter values\n");
+        return ERR_REPLY;
     } else {
-        return -1;
+        return UNKNOWN_REPLY;
     }
 
     return 0;
@@ -717,50 +707,72 @@ int receive_user_input() {
 
     if (!strcmp(command, "login")) {
         handler = handle_login();
-        if (handler == -1)
+        if (handler == UNKNOWN_REPLY) 
             fprintf(stderr, "Error logging in the user\n");
+        else if (handler == ERR_REPLY)
+            return ERR_REPLY;
     } else if (!strcmp(command, "logout")) {
         handler = handle_logout();
-        if (handler == -1)
+        if (handler == UNKNOWN_REPLY)
             fprintf(stdout, "Error logging out the user\n");
+        else if (handler == ERR_REPLY)
+            return ERR_REPLY;
     } else if (!strcmp(command, "unregister")) {
         handler = handle_unregister();
-        if (handler == -1)
+        if (handler == UNKNOWN_REPLY)
             fprintf(stdout, "Error unregistering user\n");
+        else if (handler == ERR_REPLY)
+            return ERR_REPLY;
     } else if (!strcmp(command, "exit")) {
         handle_exit();
     } else if (!strcmp(command, "open")) {
         handler = handle_open();
-        if (handler == -1)
+        if (handler == UNKNOWN_REPLY)
             fprintf(stderr, "Error opening auction\n");
+        else if (handler == ERR_REPLY)
+            return ERR_REPLY;
     } else if (!strcmp(command, "close")) {
         handler = handle_close();
-        if (handler == -1)
+        if (handler == UNKNOWN_REPLY)
             fprintf(stderr, "Error closing auction\n");
+        else if (handler == ERR_REPLY)
+            return ERR_REPLY;
     } else if (!strcmp(command, "myauctions") || !strcmp(command, "ma")) {
         handler = handle_myauctions();
-        if (handler == -1)
+        if (handler == UNKNOWN_REPLY)
             fprintf(stderr, "Error listing user's auctions\n");
+        else if (handler == ERR_REPLY)
+            return ERR_REPLY;
     } else if (!strcmp(command, "mybids") || !strcmp(command, "mb")) {
         handler = handle_mybids();
-        if (handler == -1)
+        if (handler == UNKNOWN_REPLY)
             fprintf(stderr, "Error listing user's bids\n");
+        else if (handler == ERR_REPLY)
+            return ERR_REPLY;
     } else if (!strcmp(command, "list") || !strcmp(command, "l")) {
         handler = handle_list();
-        if (handler == -1)
+        if (handler == UNKNOWN_REPLY)
             fprintf(stderr, "Error listing the auctions present in the server\n");
+        else if (handler == ERR_REPLY)
+            return ERR_REPLY;
     } else if (!strcmp(command, "show_asset") || !strcmp(command, "sa")) {
         handler = handle_show_asset();
-        if (handler == -1)
+        if (handler == UNKNOWN_REPLY)
             fprintf(stderr, "Error showing asset\n");
+        else if (handler == ERR_REPLY)
+            return ERR_REPLY;
     } else if (!strcmp(command, "bid") || !strcmp(command, "b")) {
         handler = handle_bid();
-        if (handler == -1) 
+        if (handler == UNKNOWN_REPLY) 
             fprintf(stderr, "Error placing bid\n");
+        else if (handler == ERR_REPLY)
+            return ERR_REPLY;
     } else if (!strcmp(command, "show_record") || !strcmp(command, "sr")) {
         handler = handle_show_record();
-        if (handler == -1)
+        if (handler == UNKNOWN_REPLY)
             fprintf(stderr, "Error showing record\n");
+        else if (handler == ERR_REPLY)
+            return ERR_REPLY;
     } else {
         return -1;
     }
@@ -771,12 +783,16 @@ int receive_user_input() {
 int main(int argc, char **argv) {
     int r;
 
-    if (parse_args(argc, argv) == -1)
+    if (parse_args(argc, argv) == -1) {
+        fprintf(stderr, "Incorrect arguments. Exiting...\n");
         exit(1);
+    }
 
     UDP_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (UDP_fd == -1)
+    if (UDP_fd == -1) {
+        fprintf(stderr, "Connection to the UPD socket failed. Exiting...\n");
         exit(1);
+    }
 
     memset(&UPD_hints, 0, sizeof(UPD_hints));
     memset(server_reply, 0, sizeof(server_reply));
@@ -794,8 +810,10 @@ int main(int argc, char **argv) {
     printf("%s %s\n", AS_addr, AS_port);
 
     UPD_errcode = getaddrinfo(AS_addr, AS_port, &UPD_hints, &UDP_res);
-    if (UPD_errcode != 0)
+    if (UPD_errcode != 0) {
+        fprintf(stderr, "Error getting UPD address info failed. Exiting...\n");
         exit(1);
+    }
 
     while (1) {
         printf("> ");
@@ -804,6 +822,9 @@ int main(int argc, char **argv) {
         if (r == -1) {
             fprintf(stderr, "Error getting user input. Unknown command\n");
             continue;
+        } else if (r == ERR_REPLY) {
+            fprintf(stderr, "ERR reply received. Terminating interaction with the server...\n");
+            return 0;
         }
 
         if (!strcmp(command, "exit")) {

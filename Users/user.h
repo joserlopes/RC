@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define UNKNOWN_REPLY -1
+#define ERR_REPLY -2
 #define BUFFER_SIZE 256
 #define LIST_SIZE 4096
 
