@@ -2,6 +2,8 @@
 #include "../utils/checker.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 int UDP_fd, TCP_fd, UPD_errcode, TCP_errcode;
 ssize_t UPD_n, TCP_n;
@@ -268,6 +270,18 @@ int handle_open() {
 
     sscanf(input, "%*s %s %s %s %s", name, asset_fname, start_value,
             time_active);
+
+    if (!check_asset_name(name))
+        puts("FOI NO ASSET NAME");
+
+    if (!check_auction_start_value(start_value))
+        puts("FOI NO START VALUE");
+
+    if (!check_auction_duration(time_active))
+        puts("FOI NO DURATION");
+
+    if (!check_asset_name(name) || !check_auction_start_value(start_value) || !check_auction_duration(time_active))
+        return -1;
 
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
@@ -591,7 +605,50 @@ int handle_show_asset() {
 }
 
 int handle_bid() {
-    sscanf(input, "%*s %s", AID);
+    int bid_value, connection_status;
+    char status[10];
+
+    memset(command_to_send, 0, sizeof(command_to_send));
+    memset(server_reply, 0, sizeof(server_reply));
+
+    sscanf(input, "%*s %s %d", AID, &bid_value);
+
+    connection_status = initialize_TCP_connection();
+    if (connection_status == -1)
+        return -1;
+
+    sprintf(command_to_send, "BID %s %s %s %d\n", UID, password, AID, bid_value);
+
+    TCP_n = write_TCP_loop(command_to_send, strlen(command_to_send));
+    if (TCP_n == -1) {
+        return -1;
+    }
+
+    TCP_n = read_TCP_loop(server_reply, sizeof(server_reply));
+    if (TCP_n == -1) {
+        return -1;
+    }
+
+    printf("%s\n", server_reply);
+
+    sscanf(server_reply, "%*s %s", status);
+
+    if (!strcmp(status, "ACC")) {
+        fprintf(stdout, "Successfully bidded %d on auction %s\n", bid_value, AID);
+    } else if (!strcmp(status, "NOK")) {
+        fprintf(stdout, "Auction %s not active\n", AID);
+    } else if (!strcmp(status, "NLG")) {
+        fprintf(stdout, "User %s not logged in\n", UID);
+    } else if (!strcmp(status, "REF")) {
+        fprintf(stdout, "Bid value too low\n");
+    } else if (!strcmp(status, "ILG")) {
+        fprintf(stdout, "Cannot bid on an auction hosted by yourself\n");
+    } else {
+        return -1;
+    }
+
+    freeaddrinfo(TCP_res);
+    close(TCP_fd);
 
     return 0;
 }
@@ -600,6 +657,7 @@ int handle_show_record() {
     char status[10];
     char auction_list[500];
 
+    memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
 
     sscanf(input, "%*s %s", AID);
@@ -675,9 +733,13 @@ int receive_user_input() {
         if (handler == -1)
             fprintf(stderr, "Error listing the auctions present in the server\n");
     } else if (!strcmp(command, "show_asset") || !strcmp(command, "sa")) {
-        handle_show_asset();
+        handler = handle_show_asset();
+        if (handler == -1)
+            fprintf(stderr, "Error showing asset\n");
     } else if (!strcmp(command, "bid") || !strcmp(command, "b")) {
-        handle_bid();
+        handler = handle_bid();
+        if (handler == -1) 
+            fprintf(stderr, "Error placing bid\n");
     } else if (!strcmp(command, "show_record") || !strcmp(command, "sr")) {
         handler = handle_show_record();
         if (handler == -1)

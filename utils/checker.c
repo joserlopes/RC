@@ -2,7 +2,6 @@
 #include <ctype.h>
 #include <string.h>
 
-// AUXILIAR
 int digits_only(char *UID) {
     while (*UID) {
         if (isdigit(*UID++) == 0) return 0;
@@ -36,7 +35,7 @@ int check_UID_password(char *UID, char *pw) {
 }
  
 int check_asset_name(char *name) {
-    if (name == NULL || strlen(name) != 10 || !alphanumeric_only(name))
+    if (name == NULL || strlen(name) > 10 || !alphanumeric_fname(name))
         return 0;
 
     return 1;
@@ -57,7 +56,7 @@ int check_auction_duration(char *duration) {
 }
 
 int check_file_name(char *fname) {
-    if (fname == NULL || strlen(fname) >24 || !alphanumeric_fname(fname))
+    if (fname == NULL || strlen(fname) > 24 || !alphanumeric_fname(fname))
         return 0;
 
     return 1;

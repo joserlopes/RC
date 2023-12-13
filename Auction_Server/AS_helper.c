@@ -176,32 +176,3 @@ int CheckAssetFile(char *fname) {
     return filestat.st_size;
 }
 
-
-// AUXILIAR
-int digits_only(char *UID) {
-    while (*UID) {
-        if (isdigit(*UID++) == 0) return 0;
-    }
-    //int i;
-    //while (UID[i] != '\0') {
-	//	if (!(UID[i] >= '0' && UID[i] <= '9'))
-	//		return 0;
-	//	i++;
-	//}
-    return 1;
-}
-
-int alphanumeric_only(char *pw) {
-    while (*pw) {
-        if (isalnum(*pw++) == 0) return 0;
-    }
-    return 1;
-}
-
-int check_syntax(char *UID, char *pw) {
-    if (UID == NULL || strlen(UID) != 6 || !digits_only(UID) ||
-        pw == NULL || strlen(pw) != 8 || !alphanumeric_only(pw))
-        return 0;
-    return 1;
-}
-

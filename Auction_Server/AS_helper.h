@@ -41,9 +41,4 @@ int EraseLogin(char *UID);
 int CreateAUCTIONDir(int AID); 
 int CheckAssetFile(char *fname); 
 
-// AUXILIAR
-int digits_only(char *UID); 
-int alphanumeric_only(char *pw);
-int check_syntax(char *UID, char *pw); 
-
 #endif
