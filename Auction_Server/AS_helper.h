@@ -1,5 +1,5 @@
-#ifndef AUCTION_SERVER_HELPER_H
-#define AUCTION_SERVER_HELPER_H
+#ifndef AUCTION_SERVER_H
+#define AUCTION_SERVER_H
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -15,12 +15,22 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <errno.h>
+#include <time.h>
+#include <pthread.h>
 
-#define OK 0
-#define NOK 1
-#define REG 2
-#define UNR 3
-#define ERR 4
+typedef struct {
+   int AID[1000];
+   int state[1000];
+} AUCTIONLIST;
+
+typedef struct {
+   int no_bids;
+   int bids[50];
+} BIDLIST;
+
+
+#define HOSTED 0
+#define BIDDED 1
 
 // USER -----------------------------------------------------------------------------
 int CreateUserDir(char *UID); 
@@ -40,5 +50,10 @@ int EraseLogin(char *UID);
 // AUCTION ----------------------------------------------------------------------------
 int CreateAUCTIONDir(int AID); 
 int CheckAssetFile(char *fname); 
+int GetMyAuctionsList(int mode, char *UID, AUCTIONLIST *list);
+int GetAuctionsList(AUCTIONLIST *list);
+int ConvertAuctionList(int n, AUCTIONLIST *list, char *lt);
+int LoadBid(char *pathname, BIDLIST *list);
+int GetBidList(int AID, BIDLIST *list);
 
 #endif
