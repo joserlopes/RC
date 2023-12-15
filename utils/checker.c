@@ -27,6 +27,12 @@ int alphanumeric_fname(char *fname) {
     return 1;
 }
 
+int check_UID(char *UID) {
+    if (UID == NULL || strlen(UID) != 6 || !digits_only(UID))
+        return 0;
+    return 1;
+}
+
 int check_UID_password(char *UID, char *pw) {
     if (UID == NULL || strlen(UID) != 6 || !digits_only(UID) ||
         pw == NULL || strlen(pw) != 8 || !alphanumeric_only(pw))

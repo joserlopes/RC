@@ -12,10 +12,9 @@ struct addrinfo UPD_hints, *UDP_res, TCP_hints, *TCP_res;
 struct sockaddr_in UPD_addr, TCP_addr;
 char server_reply[LIST_SIZE];
 char *AS_addr = "localhost";
-// TODO: change the default port so it it is 58000+[Group_number], in our case
 // INFO: The port 58001 only echoes the message received, the port 58011 is
 // the actual AS_server
-char *AS_port = "58011";
+char *AS_port = "58088";
 char command_to_send[500];
 char input[400];
 char command[20];
@@ -545,9 +544,6 @@ int handle_show_asset() {
 
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
-    // memset(fdata, 0, sizeof(fdata));
-    // memset(status, 0, sizeof(status));
-    // memset(fname, 0, sizeof(fname));
 
     connection_status = initialize_TCP_connection();
     if (connection_status == -1)

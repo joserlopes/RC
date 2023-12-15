@@ -1,5 +1,4 @@
 #include "AS_helper.h"
-#include "../utils/checker.h"
 
 // USER -----------------------------------------------------------------------------
 int CreateUserDir(char *UID) {

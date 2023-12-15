@@ -16,8 +16,7 @@ char reply[256];
 
 // TODO: change the port so it it is 58000+[Group_number]
 // INFO: The port 58001 only echoes the message received, the port 58011 is the actual AS_server
-char *AS_port = "58011";
-
+char *AS_port = "58088";
 
 int parse_args(int argc, char **argv) {
     switch (argc) {
@@ -144,8 +143,8 @@ int listMyAuctions_request(int mode) {
     AUCTIONLIST *list = (AUCTIONLIST*) malloc(sizeof(AUCTIONLIST));
 
     write(1,"before: ",8); write(1,auction_list,strlen(auction_list));write(1,"\n",1);
-    memset(auction_list, 0, sizeof(auction_list));
-    write(1,"after: ",7);write(1,auction_list,strlen(auction_list));write(1,"\n",1);
+    memset(auction_list, 0, strlen(auction_list));
+    write(1,"after: ",7); write(1,auction_list,strlen(auction_list));write(1,"\n",1);
 
     sscanf(buffer, "%*s %s", UID);
     
@@ -183,7 +182,7 @@ int listAuctions_request() {
     char *auction_list = (char*) malloc(sizeof(char)*4000);
     AUCTIONLIST *list = (AUCTIONLIST*) malloc(sizeof(AUCTIONLIST));
     
-    memset(auction_list, 0, sizeof(auction_list));
+    memset(auction_list, 0, strlen(auction_list));
 
     n = GetAuctionsList(list);
     
