@@ -829,10 +829,12 @@ int main(int argc, char **argv) {
 
         if (r == -1) {
             fprintf(stderr, "Error getting user input. Unknown command\n");
+            memset(command, 0, sizeof(command));
             continue;
         } else if (r == ERR_REPLY) {
             fprintf(stderr, "Error communicating to the server\n");
         } else if (r == LOGGED_IN) {
+            memset(command, 0, sizeof(command));
             continue;
         } else if (r == UNKNOWN_REPLY) {
             fprintf(stderr, "Unknown reply received from the server. Terminating connection\n");
