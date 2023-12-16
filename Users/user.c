@@ -1,9 +1,5 @@
 #include "user.h"
 #include "../utils/checker.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 int UDP_fd, TCP_fd, UPD_errcode, TCP_errcode;
 ssize_t UPD_n, TCP_n;
@@ -12,8 +8,6 @@ struct addrinfo UPD_hints, *UDP_res, TCP_hints, *TCP_res;
 struct sockaddr_in UPD_addr, TCP_addr;
 char server_reply[LIST_SIZE];
 char *AS_addr = "localhost";
-// INFO: The port 58001 only echoes the message received, the port 58011 is
-// the actual AS_server
 char *AS_port = "58088";
 char command_to_send[500];
 char input[400];
@@ -134,6 +128,9 @@ int handle_logout() {
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
 
+    if (!logged_in)
+        return UNKNOWN_REPLY;
+
     sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "LOU %s %s\n", UID, password);
 
@@ -153,8 +150,6 @@ int handle_logout() {
 
     if (!strcmp(status, "OK")) {
         fprintf(stdout, "Sucessful logout\n");
-        memset(UID, 0, sizeof(UID));
-        memset(password, 0, sizeof(password));
         logged_in = 0;
     } else if (!strcmp(status, "UNR")) {
         fprintf(stdout, "Unknown user\n");
@@ -174,6 +169,9 @@ int handle_unregister() {
 
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
+
+    if (!logged_in)
+        return UNKNOWN_REPLY;
 
     sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "UNR %s %s\n", UID, password);
@@ -232,7 +230,7 @@ long write_TCP_loop(char *fdata_buffer, ssize_t size) {
         total_written += written;
     }
 
-    return 0;
+    return total_written;
 }
 
 long read_TCP_loop(char *reply_buffer, ssize_t size) {
@@ -242,10 +240,10 @@ long read_TCP_loop(char *reply_buffer, ssize_t size) {
     while ((received = read(TCP_fd, reply_buffer + total_received,
                     size - total_received)) > 0) {
         total_received += received;
-    }
 
-    if (received == -1) {
-        return -1;
+        if (received == -1) {
+            return -1;
+        }
     }
 
     return total_received;
@@ -280,6 +278,7 @@ int handle_open() {
 
     sscanf(input, "%*s %s %s %s %s", name, asset_fname, start_value,
             time_active);
+
 
     if (!check_asset_name(name) || !check_auction_start_value(start_value) || !check_auction_duration(time_active))
         return -1;
@@ -334,10 +333,11 @@ int handle_open() {
         return -1;
     }
 
+    printf("%s\n", server_reply);
     sscanf(server_reply, "%*s %s %s", status, new_AID);
 
     if (!strcmp(status, "OK")) {
-        fprintf(stdout, "Auction %s created\n", new_AID);
+        fprintf(stdout, "Auction with AID: %s created\n", new_AID);
     } else if (!strcmp(status, "NOK")) {
         fprintf(stdout, "Auction could not be started\n");
     } else if (!strcmp(status, "NLG")) {
@@ -582,19 +582,16 @@ int handle_show_asset() {
         return -1;
     }
 
-    // sscanf(accumulated_reply, "%*s %s %s %ld %s", status, fname, &fsize, fdata);
-
     // Ignore the first part of the reply
     strtok(accumulated_reply, " ");
     status = strtok(NULL, " ");
 
-    fname = strtok(NULL, " ");
-    fsizeStr = strtok(NULL, " ");
-    fdata = strtok(NULL, "\0"); 
-
-    ssize_t fsize = strtoul(fsizeStr, NULL, 10);
-
     if (!strcmp(status, "OK")) {
+        fname = strtok(NULL, " ");
+        fsizeStr = strtok(NULL, " ");
+        fdata = strtok(NULL, "\0"); 
+
+        ssize_t fsize = strtoul(fsizeStr, NULL, 10);
         file = fopen(fname, "wb");
         file_creation = fwrite(fdata, 1, fsize, file);
 
@@ -602,9 +599,10 @@ int handle_show_asset() {
             return -1;
         }
         fprintf(stdout, "Stored file %s with size %ld\n", fname, fsize);
-    } else if (!strcmp(status, "NOK")) {
+        fclose(file);
+    } else if (!strcmp(status, "NOK\n")) {
         fprintf(stdout, "No file to be sent\n");
-    } else if (!strcmp(status, "ERR")) {
+    } else if (!strcmp(status, "ERR\n")) {
         return ERR_REPLY;
     } else {
         return UNKNOWN_REPLY;
@@ -614,7 +612,6 @@ int handle_show_asset() {
     close(TCP_fd);
 
     free(accumulated_reply);
-    fclose(file);
 
     return 0;
 }
@@ -717,19 +714,19 @@ int receive_user_input() {
     if (!strcmp(command, "login")) {
         handler = handle_login();
         if (handler == UNKNOWN_REPLY) 
-            fprintf(stderr, "Error logging in the user\n");
+            return UNKNOWN_REPLY;
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else if (!strcmp(command, "logout")) {
         handler = handle_logout();
         if (handler == UNKNOWN_REPLY)
-            fprintf(stdout, "Error logging out the user\n");
+            return UNKNOWN_REPLY;
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else if (!strcmp(command, "unregister")) {
         handler = handle_unregister();
         if (handler == UNKNOWN_REPLY)
-            fprintf(stdout, "Error unregistering user\n");
+            return UNKNOWN_REPLY;
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else if (!strcmp(command, "exit")) {
@@ -739,49 +736,49 @@ int receive_user_input() {
     } else if (!strcmp(command, "open")) {
         handler = handle_open();
         if (handler == UNKNOWN_REPLY)
-            fprintf(stderr, "Error opening auction\n");
+            return UNKNOWN_REPLY;
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else if (!strcmp(command, "close")) {
         handler = handle_close();
         if (handler == UNKNOWN_REPLY)
-            fprintf(stderr, "Error closing auction\n");
+            return UNKNOWN_REPLY;
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else if (!strcmp(command, "myauctions") || !strcmp(command, "ma")) {
         handler = handle_myauctions();
         if (handler == UNKNOWN_REPLY)
-            fprintf(stderr, "Error listing user's auctions\n");
+            return UNKNOWN_REPLY;
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else if (!strcmp(command, "mybids") || !strcmp(command, "mb")) {
         handler = handle_mybids();
         if (handler == UNKNOWN_REPLY)
-            fprintf(stderr, "Error listing user's bids\n");
+            return UNKNOWN_REPLY;
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else if (!strcmp(command, "list") || !strcmp(command, "l")) {
         handler = handle_list();
         if (handler == UNKNOWN_REPLY)
-            fprintf(stderr, "Error listing the auctions present in the server\n");
+            return UNKNOWN_REPLY;
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else if (!strcmp(command, "show_asset") || !strcmp(command, "sa")) {
         handler = handle_show_asset();
         if (handler == UNKNOWN_REPLY)
-            fprintf(stderr, "Error showing asset\n");
+            return UNKNOWN_REPLY;
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else if (!strcmp(command, "bid") || !strcmp(command, "b")) {
         handler = handle_bid();
         if (handler == UNKNOWN_REPLY) 
-            fprintf(stderr, "Error placing bid\n");
+            return UNKNOWN_REPLY;
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else if (!strcmp(command, "show_record") || !strcmp(command, "sr")) {
         handler = handle_show_record();
         if (handler == UNKNOWN_REPLY)
-            fprintf(stderr, "Error showing record\n");
+            return UNKNOWN_REPLY;
         else if (handler == ERR_REPLY)
             return ERR_REPLY;
     } else {
@@ -818,11 +815,11 @@ int main(int argc, char **argv) {
     UPD_hints.ai_family = AF_INET;
     UPD_hints.ai_socktype = SOCK_DGRAM;
 
-    printf("%s %s\n", AS_addr, AS_port);
+    printf("Binding to address: %s on port: %s\n", AS_addr, AS_port);
 
     UPD_errcode = getaddrinfo(AS_addr, AS_port, &UPD_hints, &UDP_res);
     if (UPD_errcode != 0) {
-        fprintf(stderr, "Error getting UPD address info failed. Exiting...\n");
+        fprintf(stderr, "Error: getting UPD address info failed. Exiting...\n");
         exit(1);
     }
 
@@ -834,10 +831,12 @@ int main(int argc, char **argv) {
             fprintf(stderr, "Error getting user input. Unknown command\n");
             continue;
         } else if (r == ERR_REPLY) {
-            fprintf(stderr, "ERR reply received. Terminating interaction with the server...\n");
-            return 0;
+            fprintf(stderr, "Error communicating to the server\n");
         } else if (r == LOGGED_IN) {
             continue;
+        } else if (r == UNKNOWN_REPLY) {
+            fprintf(stderr, "Unknown reply received from the server. Terminating connection\n");
+            return 0;
         }
 
         if (!strcmp(command, "exit")) {

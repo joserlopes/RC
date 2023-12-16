@@ -11,11 +11,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#define UNKNOWN_REPLY -1
 #define ERR_REPLY -2
 #define LOGGED_IN -3
+#define UNKNOWN_REPLY -4
 #define BUFFER_SIZE 256
-#define LIST_SIZE 4096
+#define LIST_SIZE 5000
 
 int parse_args(int argc, char **argv);
 int receive_user_input();
