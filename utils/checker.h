@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 int digits_only(char *UID); 
 int alphanumeric_only(char *pw);

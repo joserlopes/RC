@@ -345,11 +345,13 @@ long read_TCP_loop(int new_TCP_fd, char *request_buffer, ssize_t size) {
     while ((received = read(new_TCP_fd, request_buffer + total_received,
                     size - total_received)) > 0) {
         total_received += received;
+
         if(received<size)
             break;
-    }
-    if (received == -1) {
-        return -1;
+
+        if (received == -1) {
+            return -1;
+        }
     }
 
     return total_received;
@@ -384,33 +386,7 @@ void handle_TCP_connection() {
 
     memset(buffer, 0, sizeof(buffer));
     memset(reply, 0, sizeof(reply));
-    /*
-    ssize_t accumulated_size = 0;
-    
-    do {
-        TCP_n = read_TCP_loop(new_TCP_fd, buffer, sizeof(buffer));
 
-        if (TCP_n > 0) {
-            accumulated_buffer = (char *)realloc(accumulated_buffer, accumulated_size + TCP_n);
-            if (accumulated_buffer == NULL) {
-                free(accumulated_buffer);
-                printf("buffer error\n");
-                close(new_TCP_fd);
-            }
-
-            memcpy(accumulated_buffer + accumulated_size, buffer, TCP_n);
-            accumulated_size += TCP_n;
-        }
-
-        memset(buffer, 0, sizeof(buffer));
-
-    } while (TCP_n > 0);
-
-    if (TCP_n == -1) {
-        printf("error reading\n");
-        close(new_TCP_fd);
-    }
-    */
     TCP_n = read_TCP_loop(new_TCP_fd, buffer, sizeof(buffer));
     if (TCP_n == -1) {
         printf("error reading\n");

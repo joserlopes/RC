@@ -1,8 +1,4 @@
 #include "checker.h"
-#include <ctype.h>
-#include <string.h>
-#include <stdlib.h>
-#include <string.h>
 
 int digits_only(char *UID) {
     while (*UID) {
