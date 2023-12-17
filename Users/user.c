@@ -276,6 +276,9 @@ int handle_open() {
     char new_AID[10];
     int connection_status;
 
+    if (!check_UID_password(UID, password))
+        return -1;
+
     sscanf(input, "%*s %s %s %s %s", name, asset_fname, start_value,
             time_active);
 
@@ -295,8 +298,10 @@ int handle_open() {
         return -1;
 
     file = fopen(asset_path, "rb");
-
     if (file == NULL) {
+        printf("no file\n");
+        freeaddrinfo(TCP_res);
+        close(TCP_fd);
         return -1;
     }
 
@@ -306,6 +311,8 @@ int handle_open() {
 
     char *fdata_buffer = (char *)malloc(sizeof(char) * size);
     if (fdata_buffer == NULL) {
+        freeaddrinfo(TCP_res);
+        close(TCP_fd);
         fclose(file);
         return -1;
     }
@@ -317,6 +324,8 @@ int handle_open() {
     if (bytes_read != size) {
         free(fdata_buffer);
         fclose(file);
+        freeaddrinfo(TCP_res);
+        close(TCP_fd);
         return -1;
     }
 

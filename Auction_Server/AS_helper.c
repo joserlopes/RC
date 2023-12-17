@@ -1,4 +1,8 @@
 #include "AS_helper.h"
+#include "../utils/checker.h"
+
+time_t fulltime;
+struct tm *current_time;
 
 // USER -----------------------------------------------------------------------------
 int CreateUserDir(char *UID) {
@@ -145,25 +149,193 @@ int EraseLogin(char *UID) {
 int CreateAUCTIONDir(int AID) {
     char AID_dirname[28];
     char BIDS_dirname [33];
+    char ASSET_dirname [34];
     int ret;
 
     if (AID < 1 || AID > 999)
         return 0;
 
-    sprintf(AID_dirname, "Auction_Server/AUCTIONS/%03d",AID);
+    sprintf(AID_dirname, "Auction_Server/AUCTIONS/%03d", AID);
 
     ret = mkdir(AID_dirname, 0700);
     if (ret == -1)
         return 0;
 
-    sprintf(BIDS_dirname, "Auction_Server/AUCTIONS/%03d/BIDS",AID);
+    sprintf(BIDS_dirname, "Auction_Server/AUCTIONS/%03d/BIDS", AID);
 
     ret = mkdir(BIDS_dirname, 0700);
     if (ret == -1) {
         rmdir(AID_dirname);
         return 0;
     }
+
+    sprintf(ASSET_dirname, "Auction_Server/AUCTIONS/%03d/ASSET", AID);
+
+    ret = mkdir(ASSET_dirname, 0700);
+    if (ret == -1) {
+        rmdir(AID_dirname);
+        rmdir(BIDS_dirname);
+        return 0;
+    }
     return 1;
+}
+
+int CreateAuctionFile(int mode, int AID, char *UID) {
+    char auctionf_path[43];
+    FILE *fp;
+
+    if (mode == HOSTED)
+        sprintf(auctionf_path,"Auction_Server/USERS/%s/HOSTED/%03d.txt", UID, AID);
+    else sprintf(auctionf_path,"Auction_Server/USERS/%s/BIDDED/%03d.txt", UID, AID);
+
+    fp = fopen (auctionf_path, "w");
+    if (fp == NULL)
+        return 0;
+
+    if (mode == HOSTED)
+        fprintf(fp, "HOSTING %03d\n", AID);
+    else fprintf(fp, "BIDDING %03d\n", AID);
+    fclose(fp);
+
+}
+
+int StartAuction(int AID, char *UID, char *name, char *fname, int value, int t_active) { 
+    char start_path[42];
+    char start_datetime[72];
+    FILE *fp;
+    time_t start_fulltime = time(&fulltime);
+    current_time = gmtime(&fulltime);
+
+    sprintf(start_datetime, "%4d-%02d-%02d %02d:%02d:%02d",
+            current_time->tm_year+1900, current_time->tm_mon+1, current_time->tm_mday,
+            current_time->tm_hour, current_time->tm_min, current_time->tm_sec);
+
+    sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
+
+    fp = fopen (start_path, "w");
+    if (fp == NULL)
+        return 0;
+
+    // UID name asset_fname start_value timeactive start_datetime start_fulltime
+    fprintf(fp, "%s %s %s %d %d %s %ld\n",UID,name,fname,
+            value,t_active,start_datetime,start_fulltime);
+    fclose(fp);
+    return 0;
+}
+
+int EndAuction(int AID) {
+    int i=0;
+    long fp_size;
+    char *strtok_res;
+    char *fbuffer;
+    char start_path[42];
+    char end_path[40];
+    char end_datetime[72];
+    FILE *fp;
+    time_t end_sec_time;
+    time_t start_fulltime;
+    time_t end_fulltime = time(&fulltime);
+    current_time = gmtime(&fulltime);
+
+    sprintf(end_datetime, "%4d-%02d-%02d %02d:%02d:%02d",
+            current_time->tm_year+1900, current_time->tm_mon+1, current_time->tm_mday,
+            current_time->tm_hour, current_time->tm_min, current_time->tm_sec);
+
+    sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
+    sprintf(end_path, "Auction_Server/AUCTIONS/%03d/END_%03d.txt", AID, AID);
+
+    fp = fopen(start_path, "r");
+    if (fp == NULL)
+        return 0;
+
+    fseek (fp , 0 , SEEK_END);
+    fp_size = ftell (fp);
+    rewind(fp);
+    fbuffer = (char*) malloc (sizeof(char)*fp_size);
+
+    fgets(fbuffer,fp_size,fp);
+    fclose(fp);
+
+    strtok_res = strtok(fbuffer, " ");
+    
+    while (i!=7) {strtok_res = strtok(NULL, " ");;i++;}
+
+    start_fulltime = strtol(strtok_res,NULL,10);
+    end_sec_time = end_fulltime - start_fulltime;
+    printf("%ld\n", end_sec_time);
+
+    return 1;
+}
+
+int CheckEndAuction(int AID) {
+    char end_path[40];
+    FILE *fp;
+
+    sprintf(end_path, "Auction_Server/AUCTIONS/%03d/END_%03d.txt", AID, AID);
+
+    if ((fp = fopen(end_path, "r"))) {
+        fclose(fp);
+        return 1;
+    }
+    return 0;
+}
+
+int CheckAuctionExists(int AID) {
+    char AID_dirname[28];
+    DIR *dir;
+
+    sprintf(AID_dirname, "Auction_Server/AUCTIONS/%03d", AID);
+
+    if ((dir = opendir(AID_dirname))) {
+        /* Directory exists. */
+        /* User is registered */
+        closedir(dir);
+    } else if (ENOENT == errno) {
+        /* Directory does not exist. */
+        /* User not registered */
+        return 0;
+    }
+    return 1;
+}
+
+int CheckOwnerAuction(int AID, char *UID) {
+    char OWNER_UID[7];
+    char start_path[42];
+    FILE *fp;
+
+    sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
+
+    if ((fp = fopen(start_path, "r"))) {
+        fgets(OWNER_UID,strlen(UID),fp);
+        if (strcmp(OWNER_UID,UID)){
+            fclose(fp);
+            return 1;
+        }    
+        fclose(fp);
+    }
+    return 0;
+}
+
+
+int CreateAssetFile(int AID, char *fname, long fsize, char *fdata) {
+    int len = strlen(fname);
+    char asset_path[35+len];
+    int file_creation;
+    FILE *file;
+
+    sprintf(asset_path, "Auction_Server/AUCTIONS/%03d/ASSET/%s", AID, fname);
+
+    file = fopen(asset_path, "wb");
+    file_creation = fwrite(fdata, 1, fsize, file);
+
+    if (file_creation == -1) {
+        printf("nope\n");
+        return -1;
+    }
+
+    fclose(file);
+
+    return 0;
 }
 
 int CheckAssetFile(char *fname) {
