@@ -58,12 +58,13 @@ int parse_args(int argc, char **argv) {
     return 0;
 }
 
-void clean_exit_on_sig(int sig_num) {
+void exit_on_sig(int sig_num) {
     freeaddrinfo(UDP_res);
     freeaddrinfo(TCP_res);
     close(UDP_fd);
     close(TCP_fd);
-    printf ("\n Signal %d received",sig_num);
+    printf ("\n Signal %d received\n",sig_num);
+    exit(1);
 }
 
 // LIN LOU UNR -------------------------------------------------
@@ -93,7 +94,6 @@ int login_request() {
     }
         
     sprintf(reply,"RLI %s\n", status);
-    write(1,reply,strlen(reply));
 
     return 0;
 }
@@ -115,7 +115,6 @@ int logout_request(){
     } else strcpy(status,"UNR");
        
     sprintf(reply,"RLO %s\n", status);
-    write(1,reply,strlen(reply));
 
     return 0;
 }
@@ -138,7 +137,6 @@ int unresgister_request() {
     } else strcpy(status,"UNR");
     
     sprintf(reply,"RUR %s\n", status);
-    write(1,reply,strlen(reply));
 
     return 0;
 }
@@ -201,7 +199,7 @@ int listAuctions_request() {
     ConvertAuctionList(n,list,auction_list);
 
     sprintf(reply,"RLS %s %s\n", status, auction_list);
-    write(1,reply,strlen(reply));
+    
 
     free(list);
     free(auction_list);
@@ -248,7 +246,7 @@ int showRecord_request() {
                 GetAuctionEnd(AID,end_str);
                 sprintf(reply,"RBD %s %s E %s\n", status, auction_str, end_str);
             } else {
-                sprintf(reply,"RBD %s %s\n", auction_str, status);
+                sprintf(reply,"RBD %s %s\n", status, auction_str);
             }
         }
     }
@@ -259,7 +257,7 @@ int showRecord_request() {
     free(auction);
     free(bid_list);
 
-    write(1,reply,strlen(reply));
+    return 0;
 }
 
 // OPEN NEW AUCTION
@@ -303,9 +301,6 @@ int openAuction_request() {
         sprintf(reply,"ROA %s %03d\n", status, AUCTION_N);
         AUCTION_N++;
     } else sprintf(reply,"ROA %s\n", status);
-
-    write(1,reply,strlen(reply));
-
     return 0;
 }
 
@@ -336,7 +331,29 @@ int closeAuction_request() {
     }
     
     sprintf(reply,"RUR %s\n", status);
-    write(1,reply,strlen(reply));
+    return 0;
+}
+
+// SEND ASSET TO CLIENT
+int showAsset_request() {
+    int AID;
+    char status[4];
+    char *fname = (char *)malloc(sizeof(char) * 100);
+    ssize_t fsize;
+    char *fdata = (char *)malloc(sizeof(char) * 1000);
+    FILE *file;
+
+    sscanf(buffer, "%*s %d", &AID);
+
+    if (!CheckAuctionExists(AID)) {
+        strcpy(status,"NOK");
+        sprintf(reply,"RSA %s \n", status);
+    } else {
+        strcpy(status,"OK");
+        fsize = GetAssetFile(AID, fname, fdata);
+        
+        sprintf(reply,"RSA %s %s %ld %s\n", status, fname, fsize, fdata);
+    }
 }
 
 // BID
@@ -366,7 +383,7 @@ int bid_request() {
     }
     
     sprintf(reply,"RBD %s\n", status);
-    write(1,reply,strlen(reply));
+    return 0;
 }
 
 // PROCESS REQUESTS --------------------------------------------
@@ -376,6 +393,8 @@ int process_user_request() {
     sscanf(buffer, "%s", request);
 
     if (!strcmp(request, "LIN")) {
+        //if (Verbose_mode)
+        //    printf("\n");
         login_request();
     } else if (!strcmp(request, "LOU")) {
         logout_request();
@@ -394,7 +413,7 @@ int process_user_request() {
     } else if (!strcmp(request, "CLS")) {
         closeAuction_request();
     } else if (!strcmp(request, "SAS")) {
-        
+        showAsset_request();
     } else if (!strcmp(request, "BID")) {
         bid_request();
     }
@@ -411,7 +430,13 @@ void handle_UDP_connection() {
     UDP_n = recvfrom(UDP_fd,buffer,sizeof(buffer),0,(struct sockaddr*)&UDP_addr,&UDP_addrlen);
     if(UDP_n == -1)/*error*/exit(1);
 
-    write(1,"received: ",10);write(1,buffer,UDP_n);
+    if (Verbose_mode) {
+        char user_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(UDP_addr.sin_addr), user_ip, INET_ADDRSTRLEN);
+        printf("\n");
+        printf("UDP Connection established with %s:%d\n", user_ip, ntohs(UDP_addr.sin_port));
+        write(1,"received: ",10);write(1,buffer,UDP_n);
+    }
 
     u = process_user_request();
     if (u == -1) {
@@ -478,7 +503,13 @@ void handle_TCP_connection() {
         close(new_TCP_fd);
     }
 
-    write(1,"received: ",10);write(1,buffer,TCP_n);
+    if (Verbose_mode) {
+        char user_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(UDP_addr.sin_addr), user_ip, INET_ADDRSTRLEN);
+        printf("\n");
+        printf("TCP Connection established with %s:%d\n", user_ip, ntohs(UDP_addr.sin_port));
+        write(1,"received: ",10);write(1,buffer,TCP_n);
+    }
 
     u = process_user_request();
     if (u == -1) {
@@ -497,10 +528,9 @@ void handle_TCP_connection() {
 
 // MAIN --------------------------------------------------------
 int main(int argc, char **argv) {
-    signal(SIGSEGV, clean_exit_on_sig);
+    signal(SIGSEGV, exit_on_sig);
     if (parse_args(argc, argv) == -1)
         exit(1);
-    printf("%c %s\n", Verbose_mode, AS_port);
 
     // UDP SERVER SECTION
     UDP_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -538,6 +568,7 @@ int main(int argc, char **argv) {
 
     if (listen(TCP_fd,5) == -1) exit(1);
 
+    printf("Hosting on port: %s\n", AS_port);
 
     FD_ZERO(&inputs); // Clear input mask
     FD_SET(0,&inputs); // Set standard input channel on
@@ -554,7 +585,7 @@ int main(int argc, char **argv) {
 
         // Check if there is any Auction that already expired
         int n;
-        printf("---ONGOING AUCTIONS:\n");
+        printf("\n---ONGOING AUCTIONS:\n");
         n = CheckAuctionsExpired();
         AUCTION_N = n+1;
         printf("---#AUCTIONS: %d\n", n);
@@ -576,15 +607,11 @@ int main(int argc, char **argv) {
 
         // Check if there is data on the UDP socket
         if (FD_ISSET(UDP_fd, &testfds)) {
-            printf("\n");
-            printf("udp\n");
             handle_UDP_connection();
         }
 
         // Check if there is a new TCP connection
         if (FD_ISSET(TCP_fd, &testfds)) {
-            printf("\n");
-            printf("tcp\n");
             handle_TCP_connection();
         }
     }
