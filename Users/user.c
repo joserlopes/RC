@@ -1,5 +1,6 @@
 #include "user.h"
 #include "../utils/checker.h"
+#include <stdio.h>
 
 int UDP_fd, TCP_fd, UPD_errcode, TCP_errcode;
 ssize_t UPD_n, TCP_n;
@@ -9,7 +10,7 @@ struct sockaddr_in UPD_addr, TCP_addr;
 char server_reply[LIST_SIZE];
 char *AS_addr = "localhost";
 char *AS_port = "58088";
-char command_to_send[500];
+char command_to_send[2000000];
 char input[400];
 char command[20];
 char UID[7];
@@ -335,7 +336,9 @@ int handle_open() {
     sprintf(command_to_send, "OPA %s %s %s %d %d %s %ld %s\n", UID, password,
             name, atoi(start_value), atoi(time_active) * 60, asset_fname, size, fdata_buffer);
 
-    TCP_n = write_TCP_loop(command_to_send, strlen(command_to_send));
+    char *new_command_to_send = (char*)malloc(sizeof(char) * (strlen(command_to_send) + size));
+
+    TCP_n = write_TCP_loop(command_to_send, sizeof(command_to_send));
     if (TCP_n == -1) {
         return -1;
     }
