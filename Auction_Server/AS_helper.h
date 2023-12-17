@@ -87,6 +87,7 @@ int GetAuctionEnd(int AID, char *end_str);
 // ASSET
 int CreateAssetFile(int AID, char *fname, long fsize, char *fdata);
 int CheckAssetFile(char *fname);
+int GetAssetFile(int AID, char *fname, char *fdata);
 
 // LIST
 int GetMyAuctionsList(int mode, char *UID, AUCTIONLIST *list);
