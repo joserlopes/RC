@@ -128,8 +128,10 @@ int handle_logout() {
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
 
-    if (!logged_in)
-        return UNKNOWN_REPLY;
+    if (!logged_in) {
+        fprintf(stdout, "No user is logged in. Please log in first.\n");
+        return 0;
+    }
 
     sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "LOU %s %s\n", UID, password);
@@ -170,8 +172,10 @@ int handle_unregister() {
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
 
-    if (!logged_in)
-        return UNKNOWN_REPLY;
+    if (!logged_in) {
+        fprintf(stdout, "No user is logged in. Please log in first.\n");
+        return 0;
+    }
 
     sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "UNR %s %s\n", UID, password);
@@ -282,7 +286,6 @@ int handle_open() {
     sscanf(input, "%*s %s %s %s %s", name, asset_fname, start_value,
             time_active);
 
-
     if (!check_asset_name(name) || !check_auction_start_value(start_value) || !check_auction_duration(time_active))
         return -1;
 
@@ -299,7 +302,7 @@ int handle_open() {
 
     file = fopen(asset_path, "rb");
     if (file == NULL) {
-        printf("no file\n");
+        fprintf(stderr, "No file\n");
         freeaddrinfo(TCP_res);
         close(TCP_fd);
         return -1;
