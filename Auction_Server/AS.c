@@ -379,6 +379,7 @@ int bid_request() {
         strcpy(status,"REF");
     else {
         CreateBid(AID,UID,value);
+        CreateAuctionFile(BIDDED,AID,UID);
         strcpy(status,"ACC");
     }
     
