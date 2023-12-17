@@ -1,4 +1,8 @@
 #include "checker.h"
+#include <ctype.h>
+#include <string.h>
+#include <stdlib.h>
+#include <string.h>
 
 int digits_only(char *UID) {
     while (*UID) {
@@ -46,7 +50,8 @@ int check_asset_name(char *name) {
 }
 
 int check_auction_start_value(char *start_value) {
-    if (start_value == NULL || strlen(start_value) > 6 || !digits_only(start_value)) 
+    if (start_value == NULL || strlen(start_value) > 6 || !digits_only(start_value) ||
+        (atoi(start_value) <= 0)) 
         return 0;
 
     return 1;
