@@ -15,7 +15,10 @@ char request[20];
 char reply[LIST_SIZE];
 int AUCTION_N = 1;
 
+// TODO: change the port so it it is 58000+[Group_number]
+// INFO: The port 58001 only echoes the message received, the port 58011 is the actual AS_server
 char *AS_port = "58088";
+
 
 int parse_args(int argc, char **argv) {
     switch (argc) {
@@ -216,6 +219,12 @@ int showRecord_request() {
     char *end_str = (char*) malloc(sizeof(char)*200);
     AUCTION *auction = (AUCTION*) malloc(sizeof(AUCTION));
     BIDLIST *bid_list = (BIDLIST*) malloc(sizeof(BIDLIST));
+
+    memset(auction_str, 0, sizeof(auction_str));
+    memset(bid_list_str, 0, sizeof(bid_list_str));
+    memset(end_str, 0, sizeof(end_str));
+    memset(auction, 0, sizeof(auction));
+    memset(bid_list, 0, sizeof(bid_list));
     
     sscanf(buffer, "%*s %d",&AID);
     
@@ -224,22 +233,22 @@ int showRecord_request() {
         sprintf(reply,"RBD %s\n", status);
     } else {
         strcpy(status,"OK");
-        //GetAuction(AID,auction_str);
+        GetAuctionStart(AID,auction_str);
         if (CheckAuctionBids(AID,0)) {
             n = GetBidList(AID,bid_list);
             ConvertBidList(n,bid_list,bid_list_str);
             if(CheckAuctionEnd(AID)) {
-                //GetAuctionEnd(AID,end_str);
-                sprintf(reply,"RBD %s %s E %s\n", status, bid_list_str, end_str);
+                GetAuctionEnd(AID,end_str);
+                sprintf(reply,"RBD %s %s %sE %s\n", status, auction_str, bid_list_str, end_str);
             } else {
-                sprintf(reply,"RBD %s %s\n", status, bid_list_str);
+                sprintf(reply,"RBD %s %s %s\n", status, auction_str, bid_list_str);
             }
         } else {
             if(CheckAuctionEnd(AID)) {
-                //GetAuctionEnd(AID,end_str);
-                sprintf(reply,"RBD %s E %s\n", status, end_str);
+                GetAuctionEnd(AID,end_str);
+                sprintf(reply,"RBD %s %s E %s\n", status, auction_str, end_str);
             } else {
-                sprintf(reply,"RBD %s\n", status);
+                sprintf(reply,"RBD %s %s\n", auction_str, status);
             }
         }
     }
@@ -251,8 +260,6 @@ int showRecord_request() {
     free(bid_list);
 
     write(1,reply,strlen(reply));
-
-    return 0;
 }
 
 // OPEN NEW AUCTION
@@ -330,8 +337,6 @@ int closeAuction_request() {
     
     sprintf(reply,"RUR %s\n", status);
     write(1,reply,strlen(reply));
-    
-    return 0;
 }
 
 // BID
@@ -362,8 +367,6 @@ int bid_request() {
     
     sprintf(reply,"RBD %s\n", status);
     write(1,reply,strlen(reply));
-
-    return 0;
 }
 
 // PROCESS REQUESTS --------------------------------------------
@@ -429,13 +432,11 @@ long read_TCP_loop(int new_TCP_fd, char *request_buffer, ssize_t size) {
     while ((received = read(new_TCP_fd, request_buffer + total_received,
                     size - total_received)) > 0) {
         total_received += received;
-
         if(received<size)
             break;
-
-        if (received == -1) {
-            return -1;
-        }
+    }
+    if (received == -1) {
+        return -1;
     }
 
     return total_received;
@@ -470,7 +471,7 @@ void handle_TCP_connection() {
 
     memset(buffer, 0, sizeof(buffer));
     memset(reply, 0, sizeof(reply));
-
+    
     TCP_n = read_TCP_loop(new_TCP_fd, buffer, sizeof(buffer));
     if (TCP_n == -1) {
         printf("error reading\n");
