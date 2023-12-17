@@ -333,7 +333,6 @@ int handle_open() {
         return -1;
     }
 
-    printf("%s\n", server_reply);
     sscanf(server_reply, "%*s %s %s", status, new_AID);
 
     if (!strcmp(status, "OK")) {
