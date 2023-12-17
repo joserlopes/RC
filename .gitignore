@@ -60,4 +60,5 @@ assets
 *.zip
 *.xlsx
 user
+/Scripts
 AS
