@@ -13,7 +13,7 @@ char buffer[LIST_SIZE];
 char *accumulated_buffer = NULL;
 char request[20];
 char reply[LIST_SIZE];
-int AUCTION = 1;
+int AUCTION_N = 1;
 
 // TODO: change the port so it it is 58000+[Group_number]
 // INFO: The port 58001 only echoes the message received, the port 58011 is the actual AS_server
@@ -209,6 +209,53 @@ int listAuctions_request() {
     return 0;
 }
 
+// SHOW AUCTION RECORD
+int showRecord_request() {
+    int n;
+    int AID;
+    char status[4];
+    char *auction_str = (char*) malloc(sizeof(char)*500);
+    char *bid_list_str = (char*) malloc(sizeof(char)*4000);
+    char *end_str = (char*) malloc(sizeof(char)*200);
+    AUCTION *auction = (AUCTION*) malloc(sizeof(AUCTION));
+    BIDLIST *bid_list = (BIDLIST*) malloc(sizeof(BIDLIST));
+    
+    sscanf(buffer, "%*s %d",&AID);
+    
+    if (!CheckAuctionExists(AID)) {
+        strcpy(status,"NOK");
+        sprintf(reply,"RBD %s\n", status);
+    } else {
+        strcpy(status,"OK");
+        //GetAuction(AID,auction_str);
+        if (CheckAuctionBids(AID,0)) {
+            n = GetBidList(AID,bid_list);
+            ConvertBidList(n,bid_list,bid_list_str);
+            if(CheckAuctionEnd(AID)) {
+                //GetAuctionEnd(AID,end_str);
+                sprintf(reply,"RBD %s %s E %s\n", status, bid_list_str, end_str);
+            } else {
+                sprintf(reply,"RBD %s %s\n", status, bid_list_str);
+            }
+        } else {
+            if(CheckAuctionEnd(AID)) {
+                //GetAuctionEnd(AID,end_str);
+                sprintf(reply,"RBD %s E %s\n", status, end_str);
+            } else {
+                sprintf(reply,"RBD %s\n", status);
+            }
+        }
+    }
+
+    free(auction_str);
+    free(bid_list_str);
+    free(end_str);
+    free(auction);
+    free(bid_list);
+
+    write(1,reply,strlen(reply));
+}
+
 // OPEN NEW AUCTION
 int openAuction_request() {
     char *UID;
@@ -237,18 +284,17 @@ int openAuction_request() {
         strcpy(status,"ERR");
     else if (CheckUserDir(UID) && CheckUserRegistered(UID)) {
         if (CheckLogin(UID) && CheckPassword(UID,pw) && 
-            CreateAUCTIONDir(AUCTION)) {
-            CreateAuctionFile(HOSTED,AUCTION,UID);
-            StartAuction(AUCTION,UID,name,fname,start_value,time_active);
-            CreateAssetFile(AUCTION,fname,fsize,fdata);
+            CreateAUCTIONDir(AUCTION_N)) {
+            CreateAuctionFile(HOSTED,AUCTION_N,UID);
+            CreateAssetFile(AUCTION_N,fname,fsize,fdata);
             strcpy(status,"OK");
             st = OK;
         } else strcpy(status, "NOK");
     }   else strcpy(status,"NLG");
 
     if (st == OK) {
-        sprintf(reply,"ROA %s %03d\n", status, AUCTION);
-        AUCTION++;
+        sprintf(reply,"ROA %s %03d\n", status, AUCTION_N);
+        AUCTION_N++;
     } else sprintf(reply,"ROA %s\n", status);
 
     write(1,reply,strlen(reply));
@@ -273,9 +319,9 @@ int closeAuction_request() {
         strcpy(status,"NLG");
     else if (!CheckAuctionExists(AID))
         strcpy(status,"EAU");
-    else if (!CheckOwnerAuction(AID,UID))
+    else if (!CheckAuctionOwner(AID,UID))
         strcpy(status,"EOW");
-    else if (CheckEndAuction(AID))
+    else if (CheckAuctionEnd(AID))
         strcpy(status,"END");
     else {
         EndAuction(AID);
@@ -283,6 +329,36 @@ int closeAuction_request() {
     }
     
     sprintf(reply,"RUR %s\n", status);
+    write(1,reply,strlen(reply));
+}
+
+// BID
+int bid_request() {
+    char UID[10];
+    char pw[10];
+    int AID;
+    int value;
+    char status[4];
+    
+    sscanf(buffer, "%*s %s %s %d %d", UID, pw, &AID, &value);
+    
+    if (!check_UID_password(UID,pw))
+        strcpy(status,"ERR");
+    else if (!(CheckUserDir(UID) && CheckPassword(UID,pw)) || 
+            !CheckLogin(UID))   
+        strcpy(status,"NLG");
+    else if (!CheckAuctionExists(AID) || CheckAuctionEnd(AID))
+        strcpy(status,"NOK");
+    else if (CheckAuctionOwner(AID,UID))
+        strcpy(status,"ILG");
+    else if (!CheckAuctionBids(AID,value))
+        strcpy(status,"REF");
+    else {
+        CreateBid(AID,UID,value);
+        strcpy(status,"ACC");
+    }
+    
+    sprintf(reply,"RBD %s\n", status);
     write(1,reply,strlen(reply));
 }
 
@@ -305,11 +381,15 @@ int process_user_request() {
     } else if (!strcmp(request, "LST")) {
         listAuctions_request();
     } else if (!strcmp(request, "SRC")) {
-        
+        showRecord_request();
     } else if (!strcmp(request, "OPA")) {
         openAuction_request();
     } else if (!strcmp(request, "CLS")) {
         closeAuction_request();
+    } else if (!strcmp(request, "SAS")) {
+        
+    } else if (!strcmp(request, "BID")) {
+        bid_request();
     }
     return 0;
 }
@@ -384,33 +464,7 @@ void handle_TCP_connection() {
 
     memset(buffer, 0, sizeof(buffer));
     memset(reply, 0, sizeof(reply));
-    /*
-    ssize_t accumulated_size = 0;
     
-    do {
-        TCP_n = read_TCP_loop(new_TCP_fd, buffer, sizeof(buffer));
-
-        if (TCP_n > 0) {
-            accumulated_buffer = (char *)realloc(accumulated_buffer, accumulated_size + TCP_n);
-            if (accumulated_buffer == NULL) {
-                free(accumulated_buffer);
-                printf("buffer error\n");
-                close(new_TCP_fd);
-            }
-
-            memcpy(accumulated_buffer + accumulated_size, buffer, TCP_n);
-            accumulated_size += TCP_n;
-        }
-
-        memset(buffer, 0, sizeof(buffer));
-
-    } while (TCP_n > 0);
-
-    if (TCP_n == -1) {
-        printf("error reading\n");
-        close(new_TCP_fd);
-    }
-    */
     TCP_n = read_TCP_loop(new_TCP_fd, buffer, sizeof(buffer));
     if (TCP_n == -1) {
         printf("error reading\n");
@@ -491,6 +545,13 @@ int main(int argc, char **argv) {
             break;
         }
 
+        // Check if there is any Auction that already expired
+        int n;
+        printf("---ONGOING AUCTIONS:\n");
+        n = CheckAuctionsExpired();
+        AUCTION_N = n+1;
+        printf("---#AUCTIONS: %d\n", n);
+
         if(FD_ISSET(0,&testfds)) {
             fgets(in_str,49,stdin);
             if(!strcmp(in_str,"v\n"))
@@ -504,17 +565,18 @@ int main(int argc, char **argv) {
                     Verbose_mode = 0;
                     break;
                 }
-            else printf("---Input at keyboard: %s\n",in_str);
         }
 
         // Check if there is data on the UDP socket
         if (FD_ISSET(UDP_fd, &testfds)) {
+            printf("\n");
             printf("udp\n");
             handle_UDP_connection();
         }
 
         // Check if there is a new TCP connection
         if (FD_ISSET(TCP_fd, &testfds)) {
+            printf("\n");
             printf("tcp\n");
             handle_TCP_connection();
         }
