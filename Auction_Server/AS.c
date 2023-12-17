@@ -285,6 +285,7 @@ int openAuction_request() {
     else if (CheckUserDir(UID) && CheckUserRegistered(UID)) {
         if (CheckLogin(UID) && CheckPassword(UID,pw) && 
             CreateAUCTIONDir(AUCTION_N)) {
+            StartAuction(AUCTION_N,UID,name,fname,start_value,time_active);
             CreateAuctionFile(HOSTED,AUCTION_N,UID);
             CreateAssetFile(AUCTION_N,fname,fsize,fdata);
             strcpy(status,"OK");
