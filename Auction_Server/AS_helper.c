@@ -1,5 +1,4 @@
 #include "AS_helper.h"
-#include "../utils/checker.h"
 
 time_t fulltime;
 struct tm *current_time;

@@ -15,10 +15,7 @@ char request[20];
 char reply[LIST_SIZE];
 int AUCTION_N = 1;
 
-// TODO: change the port so it it is 58000+[Group_number]
-// INFO: The port 58001 only echoes the message received, the port 58011 is the actual AS_server
 char *AS_port = "58088";
-
 
 int parse_args(int argc, char **argv) {
     switch (argc) {
@@ -379,6 +376,7 @@ int bid_request() {
         strcpy(status,"REF");
     else {
         CreateBid(AID,UID,value);
+        CreateAuctionFile(BIDDED,AID,UID);
         strcpy(status,"ACC");
     }
     
@@ -393,8 +391,6 @@ int process_user_request() {
     sscanf(buffer, "%s", request);
 
     if (!strcmp(request, "LIN")) {
-        //if (Verbose_mode)
-        //    printf("\n");
         login_request();
     } else if (!strcmp(request, "LOU")) {
         logout_request();

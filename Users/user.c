@@ -83,8 +83,10 @@ int handle_login() {
     sscanf(input, "%*s %s %s", UID, password);
     sprintf(command_to_send, "LIN %s %s\n", UID, password);
 
-    if (!check_UID_password(UID, password))
-        return -1;
+    if (!check_UID_password(UID, password)) {
+        fprintf(stderr, "Wrong UID or password format\n");
+        return 0;
+    }
 
     UPD_n = sendto(UDP_fd, command_to_send, strlen(command_to_send), 0,
     UDP_res->ai_addr, UDP_res->ai_addrlen);
@@ -281,14 +283,18 @@ int handle_open() {
     char new_AID[10];
     int connection_status;
 
-    if (!check_UID_password(UID, password))
-        return -1;
+    if (!check_UID_password(UID, password)) {
+        fprintf(stderr, "Wrong UID or password format\n");
+        return 0;
+    }
 
     sscanf(input, "%*s %s %s %s %s", name, asset_fname, start_value,
             time_active);
 
-    if (!check_asset_name(name) || !check_auction_start_value(start_value) || !check_auction_duration(time_active))
-        return -1;
+    if (!check_asset_name(name) || !check_auction_start_value(start_value) || !check_auction_duration(time_active)) {
+        fprintf(stderr, "Input with wrong format\n");
+        return 0;
+    }
 
     memset(command_to_send, 0, sizeof(command_to_send));
     memset(server_reply, 0, sizeof(server_reply));
