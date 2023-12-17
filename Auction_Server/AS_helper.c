@@ -197,8 +197,85 @@ int CreateAuctionFile(int mode, int AID, char *UID) {
     else fprintf(fp, "BIDDING %03d\n", AID);
     fclose(fp);
 
+}
+
+int CheckAuctionExists(int AID) {
+    char AID_dirname[28];
+    DIR *dir;
+
+    sprintf(AID_dirname, "Auction_Server/AUCTIONS/%03d", AID);
+
+    if ((dir = opendir(AID_dirname))) {
+        /* Directory exists. */
+        /* User is registered */
+        closedir(dir);
+    } else if (ENOENT == errno) {
+        /* Directory does not exist. */
+        /* User not registered */
+        return 0;
+    }
+    return 1;
+}
+
+int CheckAuctionOwner(int AID, char *UID) {
+    char OWNER_UID[7];
+    char start_path[42];
+    FILE *fp;
+
+    sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
+
+    if ((fp = fopen(start_path, "r"))) {
+        fgets(OWNER_UID,strlen(UID)+1,fp);
+        if (!strcmp(OWNER_UID,UID)){
+            fclose(fp);
+            return 1;
+        }    
+        fclose(fp);
+    }
     return 0;
 }
+
+// STATE
+long GetTimePassed(int AID) {
+    int i=0;
+    long fp_size;
+    char *strtok_res;
+    char *fbuffer;
+    char start_path[42];
+    FILE *fp;
+    time_t time_passed;
+    time_t start_fulltime;
+    time_t end_fulltime = time(&fulltime);
+    
+
+    sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
+
+    fp = fopen(start_path, "r");
+    if (fp == NULL)
+        return -1;
+
+    fseek (fp , 0 , SEEK_END);
+    fp_size = ftell (fp);
+    rewind(fp);
+    fbuffer = (char*) malloc (sizeof(char)*fp_size);
+    memset(fbuffer,0,sizeof(fbuffer));
+
+    fgets(fbuffer,fp_size,fp);
+    fclose(fp);
+
+    strtok_res = strtok(fbuffer, " ");
+    
+    while (i!=7) {strtok_res = strtok(NULL, " "); i++;}
+
+    start_fulltime = strtol(strtok_res,NULL,10);
+
+    time_passed = end_fulltime - start_fulltime;
+
+    free(fbuffer);
+
+    return time_passed;
+}
+
 
 int StartAuction(int AID, char *UID, char *name, char *fname, int value, int t_active) { 
     char start_path[42];
@@ -222,44 +299,6 @@ int StartAuction(int AID, char *UID, char *name, char *fname, int value, int t_a
             value,t_active,start_datetime,start_fulltime);
     fclose(fp);
     return 0;
-}
-
-
-long GetTimePassed(int AID) {
-    int i=0;
-    long fp_size;
-    char *strtok_res;
-    char *fbuffer;
-    char start_path[42];
-    FILE *fp;
-    time_t time_passed;
-    time_t start_fulltime;
-    time_t end_fulltime = time(&fulltime);
-    
-
-    sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
-
-    fp = fopen(start_path, "r");
-    if (fp == NULL)
-        return -1;
-
-    fseek (fp , 0 , SEEK_END);
-    fp_size = ftell (fp);
-    rewind(fp);
-    fbuffer = (char*) malloc (sizeof(char)*fp_size);
-
-    fgets(fbuffer,fp_size,fp);
-    fclose(fp);
-
-    strtok_res = strtok(fbuffer, " ");
-    
-    while (i!=7) {strtok_res = strtok(NULL, " "); i++;}
-
-    start_fulltime = strtol(strtok_res,NULL,10);
-
-    time_passed = end_fulltime - start_fulltime;
-
-    return time_passed;
 }
 
 
@@ -327,6 +366,7 @@ int CheckAuctionTime(int AID) {
     fp_size = ftell (fp);
     rewind(fp);
     fbuffer = (char*) malloc (sizeof(char)*fp_size);
+    memset(fbuffer,0,sizeof(fbuffer));
 
     fgets(fbuffer,fp_size,fp);
     fclose(fp);
@@ -354,45 +394,12 @@ int CheckAuctionTime(int AID) {
 
     fprintf(fp, "%s %ld\n", end_datetime, end_sec_time);
     fclose(fp);
+    free(fbuffer);
 
     return 1;
 }
 
-int CheckAuctionExists(int AID) {
-    char AID_dirname[28];
-    DIR *dir;
 
-    sprintf(AID_dirname, "Auction_Server/AUCTIONS/%03d", AID);
-
-    if ((dir = opendir(AID_dirname))) {
-        /* Directory exists. */
-        /* User is registered */
-        closedir(dir);
-    } else if (ENOENT == errno) {
-        /* Directory does not exist. */
-        /* User not registered */
-        return 0;
-    }
-    return 1;
-}
-
-int CheckAuctionOwner(int AID, char *UID) {
-    char OWNER_UID[7];
-    char start_path[42];
-    FILE *fp;
-
-    sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
-
-    if ((fp = fopen(start_path, "r"))) {
-        fgets(OWNER_UID,strlen(UID)+1,fp);
-        if (!strcmp(OWNER_UID,UID)){
-            fclose(fp);
-            return 1;
-        }    
-        fclose(fp);
-    }
-    return 0;
-}
 
 int CheckAuctionsExpired() {
     char AID_dirname[28];
@@ -440,7 +447,6 @@ int CreateAssetFile(int AID, char *fname, long fsize, char *fdata) {
     file_creation = fwrite(fdata, 1, fsize, file);
 
     if (file_creation == -1) {
-        printf("nope\n");
         return -1;
     }
 
@@ -449,6 +455,7 @@ int CreateAssetFile(int AID, char *fname, long fsize, char *fdata) {
     return 0;
 }
 
+
 int CheckAssetFile(char *fname) {
     struct stat filestat;
     int retstat;
@@ -456,6 +463,45 @@ int CheckAssetFile(char *fname) {
     if (retstat == -1 || filestat.st_size == 0)
         return 0;
     return filestat.st_size;
+}
+
+int GetAssetFile(int AID, char *name, char *data) {
+    int num_read=0;
+    char s;
+    char asset_path[60];
+    int file_creation;
+    char *fdata;
+    FILE *fp;
+    DIR *d;
+    struct dirent *dir;
+    
+    sprintf(asset_path, "Auction_Server/AUCTIONS/%03d/ASSET", AID);
+    
+    ssize_t fsize = CheckAssetFile(asset_path);
+    fdata = (char *)malloc(sizeof(char) * fsize);
+    memset(fdata, 0, sizeof(fdata));
+
+    d = opendir(asset_path);
+    if (d == NULL)
+        return -1;
+    dir = readdir(d);
+
+    strcpy(name,dir->d_name);
+    printf("%s\n",name);
+        
+    closedir(d);
+    sprintf(asset_path, "Auction_Server/AUCTIONS/%03d/ASSET/%s", AID, name);
+
+    fp = fopen(asset_path, "rb");
+    
+    while ((num_read = fread(&s, 1, 1, fp))) {
+        strncat(fdata,&s,1);
+    }
+
+    fdata = realloc(fdata,sizeof(char) * fsize);
+    strcpy(data,fdata);
+    fclose(fp);
+    return fsize;
 }
 
 
@@ -549,15 +595,73 @@ int ConvertBidList(int n, BIDLIST *list, char *l) {
         sprintf(aux, "B %03d %06d %s %ld ", list->UID[i], list->value[i],
                 list->bid_datetime[i], list->bid_sec_time[i]);
         strcat(l,aux);
-        printf("%s\n", aux);
+       
     }
     return 0;
 }
 
+
+int GetAuctionStart(int AID, char *auction_str) {
+    long fp_size;
+    FILE *fp;
+    char *fbuffer;
+    char start_path[42];
+
+    sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
+
+    fp = fopen(start_path, "r");
+    if (fp == NULL)
+        return -1;
+
+    fseek (fp , 0 , SEEK_END);
+    fp_size = ftell (fp);
+    rewind(fp);
+    fbuffer = (char*) malloc (sizeof(char)*fp_size);
+    memset(fbuffer,0,sizeof(fbuffer));
+
+    fgets(fbuffer,fp_size,fp);
+    fclose(fp);
+    
+    strcpy(auction_str,fbuffer);
+
+    free(fbuffer);
+
+    return 0;
+}
+
+
+int GetAuctionEnd(int AID, char *end_str) {
+    long fp_size;
+    FILE *fp;
+    char *fbuffer;
+    char start_path[40];
+
+    sprintf(start_path, "Auction_Server/AUCTIONS/%03d/END_%03d.txt", AID, AID);
+
+    fp = fopen(start_path, "r");
+    if (fp == NULL)
+        return -1;
+
+    fseek (fp , 0 , SEEK_END);
+    fp_size = ftell (fp);
+    rewind(fp);
+    fbuffer = (char*) malloc (sizeof(char)*fp_size);
+    memset(fbuffer,0,sizeof(fbuffer));
+
+    fgets(fbuffer,fp_size,fp);
+    fclose(fp);
+    
+    strcpy(end_str,fbuffer);
+
+    free(fbuffer);
+
+    return 0;
+}
+
+
 int LoadBid(char *pathname, BIDLIST *list) {
     int n = list->no_bids;
     long fp_size;
-    char *strtok_res;
     char *fbuffer;
     char bid_path[42];
     char date[11];
@@ -572,6 +676,7 @@ int LoadBid(char *pathname, BIDLIST *list) {
     fp_size = ftell (fp);
     rewind(fp);
     fbuffer = (char*) malloc (sizeof(char)*fp_size);
+    memset(fbuffer,0,sizeof(fbuffer));
 
     fgets(fbuffer,fp_size,fp);
     fclose(fp);
@@ -581,8 +686,11 @@ int LoadBid(char *pathname, BIDLIST *list) {
     strcpy(list->bid_datetime[n],date);
     strcat(list->bid_datetime[n]," ");
     strcat(list->bid_datetime[n],time);
-    printf("%s",list->bid_datetime[n]);
+    
     list->no_bids++;
+
+    free(fbuffer);
+
     return 1;
 
 }
@@ -606,6 +714,7 @@ int GetBidList(int AID, BIDLIST *list) {
         if (len == 10) { // Discard '.', '..' and invalid file names by size
             strcpy(filename,filelist[n_entries]->d_name);
             sprintf(pathname,"Auction_Server/AUCTIONS/%03d/BIDS/%s",AID,filename);
+            
             if (LoadBid(pathname,list))
                 ++n_bids;
         }   
@@ -660,6 +769,7 @@ int CheckStartValue (int AID, int value) {
     fp_size = ftell (fp);
     rewind(fp);
     fbuffer = (char*) malloc (sizeof(char)*fp_size);
+    memset(fbuffer,0,sizeof(fbuffer));
 
     fgets(fbuffer,fp_size,fp);
     fclose(fp);
@@ -668,7 +778,9 @@ int CheckStartValue (int AID, int value) {
     
     while (i!=3) {strtok_res = strtok(NULL, " "); i++;}
     start_value = atoi(strtok_res);
-    printf("startvalue: %d\n", start_value);
+
+    free(fbuffer);
+    
     if (value > start_value)
         return 1;
     return 0;
@@ -686,7 +798,7 @@ int CheckAuctionBids(int AID, int value) {
     if (n_entries <= 0) // Could testfor -1 since n_entries count always with . and ..
         return 0;
 
-    printf("oi\n");
+    
     while(n_entries--) {
         len = strlen(filelist[n_entries]->d_name);
         if (len == 10) { // Discard '.', '..' and invalid file names by size
@@ -694,9 +806,8 @@ int CheckAuctionBids(int AID, int value) {
             sprintf(pathname,"Auction_Server/AUCTIONS/%03d/BIDS/%s",AID,filename);
             max_value = atoi(strtok(filelist[n_entries]->d_name,"."));
             free(filelist);
-            printf("ola\n");
             if (value == 0)
-                return 0; 
+                return 1; 
             else if (value > max_value)
                 return 1;
             return 0; 
@@ -704,9 +815,8 @@ int CheckAuctionBids(int AID, int value) {
         free(filelist[n_entries]);
     }
     free(filelist);
-    printf("adeus\n");
 
     if(value > 0)
         return CheckStartValue(AID,value);
-    return 1;
+    return 0;
 }
