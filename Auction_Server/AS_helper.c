@@ -223,7 +223,84 @@ int StartAuction(int AID, char *UID, char *name, char *fname, int value, int t_a
     return 0;
 }
 
+
+long GetTimePassed(int AID) {
+    int i=0;
+    long fp_size;
+    char *strtok_res;
+    char *fbuffer;
+    char start_path[42];
+    FILE *fp;
+    time_t time_passed;
+    time_t start_fulltime;
+    time_t end_fulltime = time(&fulltime);
+    
+
+    sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
+
+    fp = fopen(start_path, "r");
+    if (fp == NULL)
+        return -1;
+
+    fseek (fp , 0 , SEEK_END);
+    fp_size = ftell (fp);
+    rewind(fp);
+    fbuffer = (char*) malloc (sizeof(char)*fp_size);
+
+    fgets(fbuffer,fp_size,fp);
+    fclose(fp);
+
+    strtok_res = strtok(fbuffer, " ");
+    
+    while (i!=7) {strtok_res = strtok(NULL, " "); i++;}
+
+    start_fulltime = strtol(strtok_res,NULL,10);
+
+    time_passed = end_fulltime - start_fulltime;
+
+    return time_passed;
+}
+
+
 int EndAuction(int AID) {
+    char end_path[40];
+    char end_datetime[72];
+    FILE *fp;
+    time_t end_sec_time;
+    current_time = gmtime(&fulltime);
+
+    sprintf(end_datetime, "%4d-%02d-%02d %02d:%02d:%02d",
+            current_time->tm_year+1900, current_time->tm_mon+1, current_time->tm_mday,
+            current_time->tm_hour, current_time->tm_min, current_time->tm_sec);
+
+    sprintf(end_path, "Auction_Server/AUCTIONS/%03d/END_%03d.txt", AID, AID);
+
+    end_sec_time = GetTimePassed(AID);
+
+    fp = fopen (end_path, "w");
+    if (fp == NULL)
+        return 0;
+
+    fprintf(fp, "%s %ld\n", end_datetime, end_sec_time);
+    fclose(fp);
+
+    return 1;
+}
+
+int CheckAuctionEnd(int AID) {
+    char end_path[40];
+    FILE *fp;
+
+    sprintf(end_path, "Auction_Server/AUCTIONS/%03d/END_%03d.txt", AID, AID);
+
+    if ((fp = fopen(end_path, "r"))) {
+        fclose(fp);
+        return 1;
+    }
+    return 0;
+}
+
+int CheckAuctionTime(int AID) {
     int i=0;
     long fp_size;
     char *strtok_res;
@@ -233,13 +310,10 @@ int EndAuction(int AID) {
     char end_datetime[72];
     FILE *fp;
     time_t end_sec_time;
+    time_t time_active;
     time_t start_fulltime;
-    time_t end_fulltime = time(&fulltime);
-    current_time = gmtime(&fulltime);
-
-    sprintf(end_datetime, "%4d-%02d-%02d %02d:%02d:%02d",
-            current_time->tm_year+1900, current_time->tm_mon+1, current_time->tm_mday,
-            current_time->tm_hour, current_time->tm_min, current_time->tm_sec);
+    time_t current_fulltime = time(&fulltime);
+    struct tm *end_time;
 
     sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
     sprintf(end_path, "Auction_Server/AUCTIONS/%03d/END_%03d.txt", AID, AID);
@@ -257,27 +331,30 @@ int EndAuction(int AID) {
     fclose(fp);
 
     strtok_res = strtok(fbuffer, " ");
-    
-    while (i!=7) {strtok_res = strtok(NULL, " ");;i++;}
-
+    while (i!=7) {
+        strtok_res = strtok(NULL, " "); i++;
+        if (i==4) time_active = strtol(strtok_res,NULL,10);
+    }
     start_fulltime = strtol(strtok_res,NULL,10);
-    end_sec_time = end_fulltime - start_fulltime;
-    printf("%ld\n", end_sec_time);
+
+    printf("%03d time passed: %ld/%ld\n", AID, current_fulltime - start_fulltime, time_active);
+    if(time_active > current_fulltime - start_fulltime)
+        return 0;
+
+    end_sec_time = time_active + start_fulltime;
+    end_time = gmtime(&end_sec_time);
+    sprintf(end_datetime, "%4d-%02d-%02d %02d:%02d:%02d",
+            end_time->tm_year+1900, end_time->tm_mon+1, end_time->tm_mday,
+            end_time->tm_hour, end_time->tm_min, end_time->tm_sec);
+
+    fp = fopen (end_path, "w");
+    if (fp == NULL)
+        return 0;
+
+    fprintf(fp, "%s %ld\n", end_datetime, end_sec_time);
+    fclose(fp);
 
     return 1;
-}
-
-int CheckEndAuction(int AID) {
-    char end_path[40];
-    FILE *fp;
-
-    sprintf(end_path, "Auction_Server/AUCTIONS/%03d/END_%03d.txt", AID, AID);
-
-    if ((fp = fopen(end_path, "r"))) {
-        fclose(fp);
-        return 1;
-    }
-    return 0;
 }
 
 int CheckAuctionExists(int AID) {
@@ -298,7 +375,7 @@ int CheckAuctionExists(int AID) {
     return 1;
 }
 
-int CheckOwnerAuction(int AID, char *UID) {
+int CheckAuctionOwner(int AID, char *UID) {
     char OWNER_UID[7];
     char start_path[42];
     FILE *fp;
@@ -306,8 +383,8 @@ int CheckOwnerAuction(int AID, char *UID) {
     sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
 
     if ((fp = fopen(start_path, "r"))) {
-        fgets(OWNER_UID,strlen(UID),fp);
-        if (strcmp(OWNER_UID,UID)){
+        fgets(OWNER_UID,strlen(UID)+1,fp);
+        if (!strcmp(OWNER_UID,UID)){
             fclose(fp);
             return 1;
         }    
@@ -316,6 +393,39 @@ int CheckOwnerAuction(int AID, char *UID) {
     return 0;
 }
 
+int CheckAuctionsExpired() {
+    char AID_dirname[28];
+    char end_path[40];
+    struct dirent **filelist;
+    FILE *fp;
+    int i, n_entries, n_auctions, n_expired, len;
+    int AID;
+    
+    
+    sprintf(AID_dirname, "Auction_Server/AUCTIONS/");
+
+    n_entries = scandir(AID_dirname, &filelist, 0, alphasort);
+    if (n_entries <= 0) // Could testfor -1 since n_entries count always with . and ..
+        return 0;
+    
+    n_auctions = 0;
+    n_expired = 0;
+    for (i = 0; i < n_entries; i++) {
+        len = strlen(filelist[i]->d_name);
+        if (len == 3) { // Discard '.', '..' and invalid file names by size
+            AID = atoi(filelist[i]->d_name);
+            n_auctions++;
+            if (!CheckAuctionEnd(AID)){ 
+                if(CheckAuctionTime(AID))
+                    n_expired++;
+            }
+        }
+        free(filelist[i]);
+    }
+    
+    free(filelist);
+    return n_auctions;
+}
 
 int CreateAssetFile(int AID, char *fname, long fsize, char *fdata) {
     int len = strlen(fname);
@@ -370,9 +480,7 @@ int GetMyAuctionsList(int mode, char *UID, AUCTIONLIST *list) {
         len = strlen(filelist[i]->d_name);
         if (len == 7) { // Discard '.', '..' and invalid file names by size
             AID = atoi(strtok(filelist[i]->d_name,"."));
-            sprintf(pathname,"Auction_Server/AUCTIONS/%03d/END_%03d.txt",AID,AID);
-            if ((fp = fopen(pathname, "r"))) {
-                fclose(fp);
+            if (CheckAuctionEnd(AID)) {
                 list->state[n_auctions] = 0;
             } else list->state[n_auctions] = 1;
             list->AID[n_auctions] = AID; 
@@ -432,21 +540,61 @@ int ConvertAuctionList(int n, AUCTIONLIST *list, char *l) {
     return 0;
 }
 
-
-
-
-int LoadBid(char *pathname, BIDLIST *list) {
+int ConvertBidList(int n, BIDLIST *list, char *l) {
+    int i;
+    char aux[120];
+    
+    for (i=0; i<n; i++) {
+        sprintf(aux, "B %03d %06d %s %ld ", list->UID[i], list->value[i],
+                list->bid_datetime[i], list->bid_sec_time[i]);
+        strcat(l,aux);
+        printf("%s\n", aux);
+    }
     return 0;
 }
+
+int LoadBid(char *pathname, BIDLIST *list) {
+    int n = list->no_bids;
+    long fp_size;
+    char *strtok_res;
+    char *fbuffer;
+    char bid_path[42];
+    char date[11];
+    char time[9];
+    FILE *fp;
+
+    fp = fopen(pathname, "r");
+    if (fp == NULL)
+        return -1;
+
+    fseek (fp , 0 , SEEK_END);
+    fp_size = ftell (fp);
+    rewind(fp);
+    fbuffer = (char*) malloc (sizeof(char)*fp_size);
+
+    fgets(fbuffer,fp_size,fp);
+    fclose(fp);
+
+    sscanf(fbuffer, "%d %d %s %s %ld", &list->UID[n], &list->value[n],
+           date, time, &list->bid_sec_time[n]);
+    strcpy(list->bid_datetime[n],date);
+    strcat(list->bid_datetime[n]," ");
+    strcat(list->bid_datetime[n],time);
+    printf("%s",list->bid_datetime[n]);
+    list->no_bids++;
+    return 1;
+
+}
+
 
 int GetBidList(int AID, BIDLIST *list) {
     struct dirent **filelist;
     int n_entries, n_bids, len;
-    char dirname[20];
-    char pathname[32];
+    char dirname[45];
+    char pathname[45];
     char filename[11];
 
-    sprintf(dirname, "AUCTIONS/%03d/BIDS/",AID);
+    sprintf(dirname, "Auction_Server/AUCTIONS/%03d/BIDS/",AID);
     n_entries = scandir(dirname, &filelist, 0, alphasort);
     if (n_entries <= 0) // Could testfor -1 since n_entries count always with . and ..
         return 0;
@@ -456,7 +604,7 @@ int GetBidList(int AID, BIDLIST *list) {
         len = strlen(filelist[n_entries]->d_name);
         if (len == 10) { // Discard '.', '..' and invalid file names by size
             strcpy(filename,filelist[n_entries]->d_name);
-            sprintf(pathname,"AUCTIONS/%03d/BIDS/%s",AID,filename);
+            sprintf(pathname,"Auction_Server/AUCTIONS/%03d/BIDS/%s",AID,filename);
             if (LoadBid(pathname,list))
                 ++n_bids;
         }   
@@ -466,4 +614,98 @@ int GetBidList(int AID, BIDLIST *list) {
     }
     free(filelist);
     return n_bids;
+}
+
+int CreateBid(int AID, char *UID, int value) {
+    char bid_path[45];
+    char bid_datetime[72];
+    FILE *fp;
+    time_t bid_sec_time;
+    current_time = gmtime(&fulltime);
+
+    sprintf(bid_datetime, "%4d-%02d-%02d %02d:%02d:%02d",
+            current_time->tm_year+1900, current_time->tm_mon+1, current_time->tm_mday,
+            current_time->tm_hour, current_time->tm_min, current_time->tm_sec);
+
+    sprintf(bid_path, "Auction_Server/AUCTIONS/%03d/BIDS/%06d.txt", AID, value);
+
+    bid_sec_time = GetTimePassed(AID);
+
+    fp = fopen (bid_path, "w");
+    if (fp == NULL)
+        return 0;
+
+    fprintf(fp, "%s %d %s %ld\n", UID, value, bid_datetime, bid_sec_time);
+    fclose(fp);
+
+}
+
+int CheckStartValue (int AID, int value) {
+    int i=0;
+    long fp_size;
+    char *strtok_res;
+    char *fbuffer;
+    char start_path[42];
+    FILE *fp;
+    int start_value;
+
+    sprintf(start_path, "Auction_Server/AUCTIONS/%03d/START_%03d.txt", AID, AID);
+
+    fp = fopen(start_path, "r");
+    if (fp == NULL)
+        return -1;
+
+    fseek (fp , 0 , SEEK_END);
+    fp_size = ftell (fp);
+    rewind(fp);
+    fbuffer = (char*) malloc (sizeof(char)*fp_size);
+
+    fgets(fbuffer,fp_size,fp);
+    fclose(fp);
+
+    strtok_res = strtok(fbuffer, " ");
+    
+    while (i!=3) {strtok_res = strtok(NULL, " "); i++;}
+    start_value = atoi(strtok_res);
+    printf("startvalue: %d\n", start_value);
+    if (value > start_value)
+        return 1;
+    return 0;
+}
+
+int CheckAuctionBids(int AID, int value) {
+    struct dirent **filelist;
+    int n_entries, len, max_value, star_value;
+    char dirname[45];
+    char pathname[45];
+    char filename[11];
+
+    sprintf(dirname, "Auction_Server/AUCTIONS/%03d/BIDS/",AID);
+    n_entries = scandir(dirname, &filelist, 0, alphasort);
+    if (n_entries <= 0) // Could testfor -1 since n_entries count always with . and ..
+        return 0;
+
+    printf("oi\n");
+    while(n_entries--) {
+        len = strlen(filelist[n_entries]->d_name);
+        if (len == 10) { // Discard '.', '..' and invalid file names by size
+            strcpy(filename,filelist[n_entries]->d_name);
+            sprintf(pathname,"Auction_Server/AUCTIONS/%03d/BIDS/%s",AID,filename);
+            max_value = atoi(strtok(filelist[n_entries]->d_name,"."));
+            free(filelist);
+            printf("ola\n");
+            if (value == 0)
+                return 0; 
+            else if (value > max_value)
+                return 1;
+            return 0; 
+        }   
+        free(filelist[n_entries]);
+    }
+    free(filelist);
+    printf("adeus\n");
+
+    if(value > 0)
+        return CheckStartValue(AID,value);
+    return 1;
 }
