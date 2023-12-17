@@ -24,13 +24,26 @@
 #define LIST_SIZE 4096
 
 typedef struct {
+   int state;
+   int UID;
+   char name[11];
+   char asset_fname[30];
+   char start_value[8];
+   char start_datetime[72];
+   long time_active[7];
+} AUCTION;
+
+typedef struct {
    int AID[1000];
    int state[1000];
 } AUCTIONLIST;
 
 typedef struct {
    int no_bids;
-   int bids[50];
+   int UID[50];
+   int value[50];
+   char bid_datetime[50][72];
+   long bid_sec_time[50];
 } BIDLIST;
 
 
@@ -58,11 +71,16 @@ int EraseLogin(char *UID);
 // AUCTION ----------------------------------------------------------------------------
 int CreateAUCTIONDir(int AID);
 int CreateAuctionFile(int mode, int AID, char *UID);
-int StartAuction(int AID, char *UID, char *name, char *fname, int value, int t_active);
-int EndAuction();
-int CheckEndAuction();
 int CheckAuctionExists(int AID);
-int CheckOwnerAuction(int AID, char *UID);
+int CheckAuctionOwner(int AID, char *UID);
+
+// STATE
+long GetTimePassed(int AID);
+int StartAuction(int AID, char *UID, char *name, char *fname, int value, int t_active);
+int EndAuction(int AID);
+int CheckAuctionEnd(int AID);
+int CheckAuctionTime(int AID);
+int CheckAuctionsExpired();
 
 // ASSET
 int CreateAssetFile(int AID, char *fname, long fsize, char *fdata);
@@ -76,5 +94,8 @@ int ConvertAuctionList(int n, AUCTIONLIST *list, char *lt);
 // BID
 int LoadBid(char *pathname, BIDLIST *list);
 int GetBidList(int AID, BIDLIST *list);
+int ConvertBidList(int n, BIDLIST *list, char *l);
+int CreateBid(int AID, char *UID, int value);
+int CheckAuctionBids(int AID, int value);
 
 #endif
