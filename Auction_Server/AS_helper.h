@@ -21,7 +21,6 @@
 #include <signal.h>
 #include <ftw.h>
 
-#define LIST_SIZE 4096
 
 typedef struct {
    int state;
@@ -47,6 +46,7 @@ typedef struct {
 } BIDLIST;
 
 
+#define LIST_SIZE 4096
 #define HOSTED 0
 #define BIDDED 1
 #define NOK 0
@@ -81,6 +81,8 @@ int EndAuction(int AID);
 int CheckAuctionEnd(int AID);
 int CheckAuctionTime(int AID);
 int CheckAuctionsExpired();
+int GetAuctionStart(int AID, char *auction_str);
+int GetAuctionEnd(int AID, char *end_str);
 
 // ASSET
 int CreateAssetFile(int AID, char *fname, long fsize, char *fdata);
